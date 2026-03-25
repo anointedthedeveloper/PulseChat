@@ -1,10 +1,32 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Phone, Video, MessageSquare, Camera, Loader2, UserPlus, Check, Pencil } from "lucide-react";
+import { X, Phone, Video, MessageSquare, Camera, Loader2, UserPlus, Check, Pencil, ZoomIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AvatarBubble from "./AvatarBubble";
 import type { EnrichedChatRoom } from "@/hooks/useChat";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+
+const AvatarLightbox = ({ url, name, onClose }: { url: string; name: string; onClose: () => void }) => (
+  <AnimatePresence>
+    <motion.div
+      key="avatar-lb"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[70] bg-black/95 flex items-center justify-center p-6"
+      onClick={onClose}
+    >
+      <button className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
+        <X className="h-5 w-5" />
+      </button>
+      <motion.img
+        initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        src={url} alt={name}
+        className="max-w-xs w-full rounded-2xl object-cover shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <p className="absolute bottom-8 text-white/70 text-sm font-medium">{name}</p>
+    </motion.div>
+  </AnimatePresence>
+);
 
 interface UserProfilePanelProps {
   chat: EnrichedChatRoom;
@@ -21,6 +43,7 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
   const otherMember = chat.members.find((m) => m.user_id !== user?.id);
   const profile = otherMember?.profiles;
 
+  const [avatarLightbox, setAvatarLightbox] = useState(false);
   const [editingGroup, setEditingGroup] = useState(false);
   const [groupName, setGroupName] = useState(chat.displayName);
   const [groupIcon, setGroupIcon] = useState<string | null>(null);
@@ -93,6 +116,10 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
   );
 
   return (
+    <>
+      {avatarLightbox && profile?.avatar_url && (
+        <AvatarLightbox url={profile.avatar_url} name={chat.displayName} onClose={() => setAvatarLightbox(false)} />
+      )}
     <AnimatePresence>
       {open && (
         <>
@@ -135,7 +162,14 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                     <input ref={iconRef} type="file" className="hidden" accept="image/*" onChange={handleIconUpload} />
                   </div>
                 ) : (
-                  <AvatarBubble letter={chat.displayAvatar} status={chat.otherMemberStatus as "online" | "offline"} size="lg" imageUrl={profile?.avatar_url} />
+                  <div className="relative group cursor-pointer" onClick={() => profile?.avatar_url && setAvatarLightbox(true)}>
+                    <AvatarBubble letter={chat.displayAvatar} status={chat.otherMemberStatus as "online" | "offline"} size="lg" imageUrl={profile?.avatar_url} />
+                    {profile?.avatar_url && (
+                      <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <ZoomIn className="h-5 w-5 text-white" />
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {editingGroup ? (
@@ -259,6 +293,7 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
         </>
       )}
     </AnimatePresence>
+    </>
   );
 };
 

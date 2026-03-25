@@ -189,13 +189,21 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
             {/* Video */}
             {isVideo && message.fileUrl && (
               <div className="mb-1" onClick={(e) => e.stopPropagation()}>
-                <video
-                  src={message.fileUrl}
-                  controls
-                  preload="metadata"
-                  className="rounded-lg max-h-60 w-full"
-                  style={{ maxWidth: 280 }}
-                />
+                <div className="relative rounded-lg overflow-hidden bg-black" style={{ maxWidth: 280 }}>
+                  <video
+                    src={message.fileUrl}
+                    controls
+                    preload="auto"
+                    playsInline
+                    className="rounded-lg w-full block"
+                    style={{ maxHeight: 240, maxWidth: 280 }}
+                    onLoadedMetadata={(e) => {
+                      // Seek to first frame so poster is visible
+                      const v = e.currentTarget;
+                      if (v.currentTime === 0) v.currentTime = 0.01;
+                    }}
+                  />
+                </div>
                 <a
                   href={message.fileUrl}
                   download

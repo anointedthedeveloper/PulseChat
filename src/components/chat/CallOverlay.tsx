@@ -30,6 +30,15 @@ const CallOverlay = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
 
+  // Sync mute/video state from actual track state
+  useEffect(() => {
+    if (!localStream) { setIsMuted(false); setIsVideoOff(false); return; }
+    const audioTrack = localStream.getAudioTracks()[0];
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (audioTrack) setIsMuted(!audioTrack.enabled);
+    if (videoTrack) setIsVideoOff(!videoTrack.enabled);
+  }, [localStream]);
+
   useEffect(() => {
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = localStream;
@@ -120,12 +129,12 @@ const CallOverlay = ({
       <div className="relative z-20 pb-12 flex flex-col items-center gap-5">
         {isConnected && (
           <div className="flex items-center gap-4">
-            <button onClick={() => { setIsMuted(!isMuted); onToggleMute(); }}
+            <button onClick={() => { onToggleMute(); setIsMuted((m) => !m); }}
               className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isMuted ? "bg-white/30 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"}`}>
               {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
             </button>
             {isVideo && (
-              <button onClick={() => { setIsVideoOff(!isVideoOff); onToggleVideo(); }}
+              <button onClick={() => { onToggleVideo(); setIsVideoOff((v) => !v); }}
                 className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isVideoOff ? "bg-white/30 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"}`}>
                 {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
               </button>

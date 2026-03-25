@@ -342,7 +342,7 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onMouseDown={startRecording}
+                onClick={startRecording}
                 className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground shrink-0"
               >
                 <Mic className="h-4 w-4" />

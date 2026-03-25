@@ -1,7 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useChat } from "@/hooks/useChat";
 import { useWebRTC } from "@/hooks/useWebRTC";
+import { supabase } from "@/integrations/supabase/client";
 import ChatSidebar from "@/components/chat/ChatSidebar";
 import ChatPanel from "@/components/chat/ChatPanel";
 import EmptyChatPanel from "@/components/chat/EmptyChatPanel";
@@ -14,6 +15,7 @@ const ChatPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [secondChatId, setSecondChatId] = useState<string | null>(null);
+  const [secondMessages, setSecondMessages] = useState<any[]>([]);
 
   const {
     chatRooms, activeChat, activeChatId, setActiveChatId,
@@ -62,6 +64,30 @@ const ChatPage = () => {
     const signal = (window as any).__pendingCallSignal;
     if (signal) acceptCall(signal);
   }, [acceptCall]);
+
+  // Fetch + subscribe messages for second panel
+  useEffect(() => {
+    if (!secondChatId) { setSecondMessages([]); return; }
+    supabase.from("messages").select("*").eq("chat_room_id", secondChatId).order("created_at", { ascending: true })
+      .then(({ data }) => setSecondMessages(data || []));
+    const ch = supabase.channel(`second-msgs-${secondChatId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `chat_room_id=eq.${secondChatId}` },
+        (payload) => setSecondMessages((prev) => prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new as any]))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [secondChatId]);
+
+  const handleSendSecondMessage = useCallback(async (text: string, fileUrl?: string, fileType?: string, fileName?: string, replyToId?: string, replyToText?: string, replyToSender?: string) => {
+    if (!user || !secondChatId || (!text.trim() && !fileUrl)) return;
+    const insertData: any = { chat_room_id: secondChatId, sender_id: user.id, content: text.trim() || (fileName ? `📎 ${fileName}` : "File") };
+    if (fileUrl) insertData.file_url = fileUrl;
+    if (fileType) insertData.file_type = fileType;
+    if (fileName) insertData.file_name = fileName;
+    if (replyToId) insertData.reply_to_id = replyToId;
+    if (replyToText) insertData.reply_to_text = replyToText;
+    if (replyToSender) insertData.reply_to_sender = replyToSender;
+    await supabase.from("messages").insert(insertData);
+  }, [user, secondChatId]);
 
   // Open a second chat in split view
   const handleOpenSecondChat = useCallback((id: string) => {
@@ -134,8 +160,8 @@ const ChatPage = () => {
             >
               <ChatPanel
                 chat={secondChat}
-                messages={[]}
-                onSendMessage={() => {}}
+                messages={secondMessages}
+                onSendMessage={handleSendSecondMessage}
                 onStartCall={() => {}}
                 onToggleSidebar={() => setSecondChatId(null)}
                 profileOpen={false}

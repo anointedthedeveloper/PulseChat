@@ -58,6 +58,7 @@ export function useWebRTC() {
   const [callDuration, setCallDuration] = useState(0);
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
+  const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteUserIdRef = useRef<string | null>(null);
   const chatRoomIdRef = useRef<string | null>(null);
   const callStartTimeRef = useRef<number>(0);
@@ -86,6 +87,8 @@ export function useWebRTC() {
     ringtoneRef.current.stop();
     peerConnection.current?.close();
     peerConnection.current = null;
+    peerConnections.current.forEach((pc) => pc.close());
+    peerConnections.current.clear();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -127,7 +130,7 @@ export function useWebRTC() {
     });
   }, [user, profile]);
 
-  const createPeerConnection = useCallback((targetUserId: string) => {
+  const createPeerConnection = useCallback((targetUserId: string, forGroup = false) => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pc.onicecandidate = (e) => {
       if (e.candidate) sendSignal({ type: "ice-candidate", to: targetUserId, data: e.candidate });
@@ -143,7 +146,11 @@ export function useWebRTC() {
         cleanup("ended");
       }
     };
-    peerConnection.current = pc;
+    if (forGroup) {
+      peerConnections.current.set(targetUserId, pc);
+    } else {
+      peerConnection.current = pc;
+    }
     return pc;
   }, [sendSignal, cleanup]);
 
@@ -211,9 +218,9 @@ export function useWebRTC() {
       localStreamRef.current = stream;
       setLocalStream(stream);
 
-      // Send offer to each member
+      // Send offer to each member — each gets its own RTCPeerConnection
       for (const memberId of memberIds) {
-        const pc = createPeerConnection(memberId);
+        const pc = createPeerConnection(memberId, true);
         stream.getTracks().forEach((t) => pc.addTrack(t, stream));
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -321,23 +328,27 @@ export function useWebRTC() {
               }
               break;
 
-            case "answer":
-              if (peerConnection.current) {
-                await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal.data));
+            case "answer": {
+              const pc = peerConnections.current.get(signal.from) || peerConnection.current;
+              if (pc) {
+                await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
                 for (const c of iceCandidateQueue.current) {
-                  await peerConnection.current.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+                  await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
                 }
                 iceCandidateQueue.current = [];
               }
               break;
+            }
 
-            case "ice-candidate":
-              if (peerConnection.current?.remoteDescription) {
-                await peerConnection.current.addIceCandidate(new RTCIceCandidate(signal.data)).catch(() => {});
+            case "ice-candidate": {
+              const pc = peerConnections.current.get(signal.from) || peerConnection.current;
+              if (pc?.remoteDescription) {
+                await pc.addIceCandidate(new RTCIceCandidate(signal.data)).catch(() => {});
               } else {
                 iceCandidateQueue.current.push(signal.data);
               }
               break;
+            }
 
             case "end-call":
               // Use ref to avoid stale closure

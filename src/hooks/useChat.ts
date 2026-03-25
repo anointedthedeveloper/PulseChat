@@ -333,7 +333,7 @@ export function useChat() {
             }
           } else if (newMsg.sender_id !== user.id && document.hidden) {
             // Push notification when app is in background
-            if (Notification.permission === "granted") {
+            if (Notification.permission === "granted" && !newMsg.file_type?.startsWith("call/")) {
               const { data: sender } = await supabase
                 .from("profiles")
                 .select("display_name, username")
