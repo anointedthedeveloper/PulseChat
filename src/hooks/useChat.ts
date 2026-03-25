@@ -3,6 +3,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+const PAGE_SIZE = 40;
+
+// Offline message queue
+interface QueuedMessage {
+  tempId: string;
+  chatRoomId: string;
+  text: string;
+  fileUrl?: string;
+  fileType?: string;
+  fileName?: string;
+  replyToId?: string;
+  replyToText?: string;
+  replyToSender?: string;
+}
+
 interface ChatRoom {
   id: string;
   name: string | null;
@@ -38,6 +53,9 @@ interface Message {
   reply_to_id?: string | null;
   reply_to_text?: string | null;
   reply_to_sender?: string | null;
+  // optimistic UI
+  _status?: "sending" | "failed";
+  _tempId?: string;
 }
 
 interface Reaction {
@@ -69,9 +87,15 @@ export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const offlineQueueRef = useRef<QueuedMessage[]>([]);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messagePageRef = useRef(0);
 
   const activeChat = chatRooms.find((c) => c.id === activeChatId) || null;
 
@@ -171,28 +195,42 @@ export function useChat() {
     setLoading(false);
   }, [user]);
 
-  // Fetch messages for active chat
-  const fetchMessages = useCallback(async () => {
+  // Fetch messages for active chat (paginated)
+  const fetchMessages = useCallback(async (page = 0) => {
     if (!activeChatId) {
       setMessages([]);
       setReactions([]);
+      setHasMoreMessages(false);
       return;
     }
 
-    const { data } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("chat_room_id", activeChatId)
-      .order("created_at", { ascending: true });
+    if (page === 0) setMessagesLoading(true);
 
-    setMessages(data || []);
+    const { data, count } = await supabase
+      .from("messages")
+      .select("*", { count: "exact" })
+      .eq("chat_room_id", activeChatId)
+      .order("created_at", { ascending: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    const sorted = (data || []).reverse();
+    setHasMoreMessages((count ?? 0) > (page + 1) * PAGE_SIZE);
+
+    if (page === 0) {
+      setMessages(sorted);
+    } else {
+      setMessages((prev) => [...sorted, ...prev]);
+    }
+    messagePageRef.current = page;
+    setMessagesLoading(false);
 
     // Fetch reactions for these messages
-    if (data?.length) {
-      const msgIds = data.map((m) => m.id);
+    if (sorted.length) {
+      const msgIds = sorted.map((m) => m.id);
       const { data: rxData } = await supabase.from("reactions").select("*").in("message_id", msgIds);
-      setReactions(rxData || []);
-    } else {
+      if (page === 0) setReactions(rxData || []);
+      else setReactions((prev) => [...(rxData || []), ...prev]);
+    } else if (page === 0) {
       setReactions([]);
     }
 
@@ -217,7 +255,50 @@ export function useChat() {
     }
   }, [activeChatId, user]);
 
-  // Send message — blocked if pending and not the requester, or if requester already sent 1 msg
+  const loadMoreMessages = useCallback(() => {
+    if (hasMoreMessages && !messagesLoading) {
+      fetchMessages(messagePageRef.current + 1);
+    }
+  }, [hasMoreMessages, messagesLoading, fetchMessages]);
+
+  // Offline queue flush
+  const flushOfflineQueue = useCallback(async () => {
+    if (!user || offlineQueueRef.current.length === 0) return;
+    const queue = [...offlineQueueRef.current];
+    offlineQueueRef.current = [];
+    for (const q of queue) {
+      const insertData: any = {
+        chat_room_id: q.chatRoomId,
+        sender_id: user.id,
+        content: q.text || (q.fileName ? `📎 ${q.fileName}` : "File"),
+      };
+      if (q.fileUrl) insertData.file_url = q.fileUrl;
+      if (q.fileType) insertData.file_type = q.fileType;
+      if (q.fileName) insertData.file_name = q.fileName;
+      if (q.replyToId) insertData.reply_to_id = q.replyToId;
+      if (q.replyToText) insertData.reply_to_text = q.replyToText;
+      if (q.replyToSender) insertData.reply_to_sender = q.replyToSender;
+      const { data, error } = await supabase.from("messages").insert(insertData).select().single();
+      if (!error && data) {
+        // Replace optimistic message with real one
+        setMessages((prev) => prev.map((m) => m._tempId === q.tempId ? { ...data } : m));
+      } else {
+        // Mark as failed
+        setMessages((prev) => prev.map((m) => m._tempId === q.tempId ? { ...m, _status: "failed" } : m));
+      }
+    }
+  }, [user]);
+
+  // Online/offline detection
+  useEffect(() => {
+    const onOnline = () => { setIsOnline(true); flushOfflineQueue(); };
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
+  }, [flushOfflineQueue]);
+
+  // Send message — optimistic UI + offline queue
   const sendMessage = useCallback(
     async (text: string, fileUrl?: string, fileType?: string, fileName?: string, replyToId?: string, replyToText?: string, replyToSender?: string, scheduledFor?: string) => {
       if (!user || !activeChatId || (!text.trim() && !fileUrl)) return;
@@ -228,6 +309,34 @@ export function useChat() {
         const { count } = await supabase.from("messages").select("id", { count: "exact", head: true })
           .eq("chat_room_id", activeChatId).eq("sender_id", user.id);
         if ((count ?? 0) >= 1) return;
+      }
+
+      const tempId = `temp-${Date.now()}-${Math.random()}`;
+      const optimisticMsg: Message = {
+        id: tempId,
+        _tempId: tempId,
+        chat_room_id: activeChatId,
+        sender_id: user.id,
+        content: text.trim() || (fileName ? `📎 ${fileName}` : "File"),
+        is_read: false,
+        is_delivered: false,
+        created_at: new Date().toISOString(),
+        file_url: fileUrl || null,
+        file_type: fileType || null,
+        file_name: fileName || null,
+        reply_to_id: replyToId || null,
+        reply_to_text: replyToText || null,
+        reply_to_sender: replyToSender || null,
+        _status: "sending",
+      } as any;
+
+      setMessages((prev) => [...prev, optimisticMsg]);
+
+      // If offline, queue it
+      if (!navigator.onLine) {
+        offlineQueueRef.current.push({ tempId, chatRoomId: activeChatId, text: text.trim(), fileUrl, fileType, fileName, replyToId, replyToText, replyToSender });
+        setMessages((prev) => prev.map((m) => m._tempId === tempId ? { ...m, _status: "failed" } : m));
+        return;
       }
 
       const insertData: any = {
@@ -243,10 +352,35 @@ export function useChat() {
       if (replyToSender) insertData.reply_to_sender = replyToSender;
       if (scheduledFor) insertData.scheduled_for = scheduledFor;
 
-      await supabase.from("messages").insert(insertData);
+      const { data, error } = await supabase.from("messages").insert(insertData).select().single();
+      if (error || !data) {
+        setMessages((prev) => prev.map((m) => m._tempId === tempId ? { ...m, _status: "failed" } : m));
+      } else {
+        setMessages((prev) => prev.map((m) => m._tempId === tempId ? { ...data } : m));
+      }
     },
     [user, activeChatId, chatRooms]
   );
+
+  const retryMessage = useCallback(async (tempId: string) => {
+    const msg = messages.find((m) => m._tempId === tempId);
+    if (!msg || !user) return;
+    setMessages((prev) => prev.map((m) => m._tempId === tempId ? { ...m, _status: "sending" } : m));
+    const insertData: any = {
+      chat_room_id: msg.chat_room_id,
+      sender_id: user.id,
+      content: msg.content,
+    };
+    if ((msg as any).file_url) insertData.file_url = (msg as any).file_url;
+    if ((msg as any).file_type) insertData.file_type = (msg as any).file_type;
+    if ((msg as any).file_name) insertData.file_name = (msg as any).file_name;
+    const { data, error } = await supabase.from("messages").insert(insertData).select().single();
+    if (error || !data) {
+      setMessages((prev) => prev.map((m) => m._tempId === tempId ? { ...m, _status: "failed" } : m));
+    } else {
+      setMessages((prev) => prev.map((m) => m._tempId === tempId ? { ...data } : m));
+    }
+  }, [messages, user]);
 
   // Create DM — new rooms start as 'pending'
   const createDirectMessage = useCallback(
@@ -454,6 +588,32 @@ export function useChat() {
     []
   );
 
+  // Mute helpers
+  const getMuteUntil = useCallback((chatRoomId: string): Date | null => {
+    const val = localStorage.getItem(`chatflow_mute_${chatRoomId}`);
+    if (!val) return null;
+    const d = new Date(val);
+    if (d < new Date()) { localStorage.removeItem(`chatflow_mute_${chatRoomId}`); return null; }
+    return d;
+  }, []);
+
+  const muteChat = useCallback((chatRoomId: string, hours: number | "forever") => {
+    if (hours === "forever") {
+      localStorage.setItem(`chatflow_mute_${chatRoomId}`, new Date(9999, 0).toISOString());
+    } else {
+      const until = new Date(Date.now() + hours * 3600 * 1000);
+      localStorage.setItem(`chatflow_mute_${chatRoomId}`, until.toISOString());
+    }
+  }, []);
+
+  const unmuteChat = useCallback((chatRoomId: string) => {
+    localStorage.removeItem(`chatflow_mute_${chatRoomId}`);
+  }, []);
+
+  const isChatMuted = useCallback((chatRoomId: string): boolean => {
+    return getMuteUntil(chatRoomId) !== null;
+  }, [getMuteUntil]);
+
   // Real-time subscriptions
   useEffect(() => {
     if (!user) return;
@@ -461,16 +621,18 @@ export function useChat() {
   }, [user, fetchChatRooms]);
 
   useEffect(() => {
-    fetchMessages();
+    messagePageRef.current = 0;
+    fetchMessages(0);
   }, [fetchMessages]);
 
-  // Typing indicator via Realtime presence
+  // Typing indicator via Realtime presence — with names
   useEffect(() => {
     if (typingChannelRef.current) {
       supabase.removeChannel(typingChannelRef.current);
       typingChannelRef.current = null;
     }
     setIsOtherTyping(false);
+    setTypingUsers([]);
     if (!activeChatId || !user) return;
 
     const channel = supabase.channel(`typing:${activeChatId}`, {
@@ -478,11 +640,12 @@ export function useChat() {
     });
     channel
       .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<{ typing: boolean }>();
+        const state = channel.presenceState<{ typing: boolean; name: string; inputLen: number }>();
         const others = Object.entries(state)
           .filter(([key]) => key !== user.id)
-          .some(([, presences]) => presences.some((p) => p.typing));
-        setIsOtherTyping(others);
+          .flatMap(([, presences]) => presences.filter((p) => p.typing).map((p) => ({ name: p.name, inputLen: p.inputLen ?? 0 })));
+        setIsOtherTyping(others.length > 0);
+        setTypingUsers(others.map((o) => o.inputLen > 100 ? `${o.name} (long message)` : o.name));
       })
       .subscribe();
 
@@ -490,13 +653,17 @@ export function useChat() {
     return () => { supabase.removeChannel(channel); };
   }, [activeChatId, user]);
 
-  const sendTyping = useCallback(() => {
+  const sendTyping = useCallback((inputLen = 0) => {
     const channel = typingChannelRef.current;
     if (!channel || !user) return;
-    channel.track({ typing: true });
+    const activeRoom = chatRooms.find((r) => r.id === activeChatId);
+    const name = activeRoom?.members.find((m) => m.user_id === user.id)?.profiles?.display_name
+      || activeRoom?.members.find((m) => m.user_id === user.id)?.profiles?.username
+      || "Someone";
+    channel.track({ typing: true, name, inputLen });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => channel.track({ typing: false }), 2000);
-  }, [user]);
+    typingTimeoutRef.current = setTimeout(() => channel.track({ typing: false, name, inputLen: 0 }), 2000);
+  }, [user, chatRooms, activeChatId]);
 
   // ── PWA app badge — total unread across all rooms ──
   useEffect(() => {
@@ -543,8 +710,11 @@ export function useChat() {
             supabase.from("messages").update({ is_delivered: true } as any).eq("id", newMsg.id).then(() => {}).catch(() => {});
           }
           if (newMsg.sender_id !== user.id && document.hidden) {
+            // Check mute
+            const muteUntil = localStorage.getItem(`chatflow_mute_${newMsg.chat_room_id}`);
+            const isMuted = muteUntil && new Date(muteUntil) > new Date();
             // Push notification when app is in background
-            if (Notification.permission === "granted" && !newMsg.file_type?.startsWith("call/")) {
+            if (!isMuted && Notification.permission === "granted" && !newMsg.file_type?.startsWith("call/")) {
               const { data: sender } = await supabase
                 .from("profiles")
                 .select("display_name, username")
@@ -595,12 +765,14 @@ export function useChat() {
 
   return {
     chatRooms, activeChat, activeChatId, setActiveChatId,
-    messages, reactions, sendMessage,
+    messages, reactions, sendMessage, retryMessage,
     createDirectMessage, acceptRequest, declineRequest, createGroupChat,
     removeMember, leaveGroup, promoteToAdmin, demoteAdmin,
     editMessage, deleteMessage, sendSystemMessage,
     toggleReaction, pinMessage, unpinMessage,
-    loading, fetchChatRooms, isOtherTyping, sendTyping,
+    loading, messagesLoading, hasMoreMessages, loadMoreMessages,
+    fetchChatRooms, isOtherTyping, typingUsers, sendTyping,
     clearChat, archiveChat, forwardMessage,
+    isOnline, muteChat, unmuteChat, isChatMuted,
   };
 }

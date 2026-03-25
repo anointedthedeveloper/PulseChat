@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, CheckCheck, FileText, Download, Play, Pause, Phone, Video, Reply, X, Pencil, Trash2, Copy, Pin, SmilePlus, Forward } from "lucide-react";
+import { Check, CheckCheck, FileText, Download, Play, Pause, Phone, Video, Reply, X, Pencil, Trash2, Copy, Pin, SmilePlus, Forward, Loader2, AlertCircle, RotateCcw } from "lucide-react";
 import { Highlight, themes } from "prism-react-renderer";
 
 interface Reaction { emoji: string; count: number; mine: boolean; }
@@ -18,6 +18,7 @@ interface MessageData {
   fileName?: string;
   replyTo?: { text: string; senderName: string } | null;
   reactions?: Reaction[];
+  status?: "sending" | "failed" | "sent";
 }
 
 interface MessageBubbleProps {
@@ -31,6 +32,7 @@ interface MessageBubbleProps {
   onReact?: (msgId: string, emoji: string) => void;
   onPin?: (msgId: string, text: string) => void;
   onForward?: (msg: MessageData) => void;
+  onRetry?: (msg: MessageData) => void;
   showDate?: boolean;
 }
 
@@ -143,7 +145,7 @@ export const DateSeparator = ({ date }: { date: Date }) => (
   </div>
 );
 
-const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, onDelete, onReact, onPin, onForward, showDate }: MessageBubbleProps) => {
+const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, onDelete, onReact, onPin, onForward, onRetry, showDate }: MessageBubbleProps) => {
   const [lightbox, setLightbox] = useState(false);
   const [showReactPicker, setShowReactPicker] = useState(false);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -359,7 +361,16 @@ const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, o
                   <span className={`text-[9px] italic ${isMine ? "text-primary-foreground/40" : "text-muted-foreground/60"}`}>edited</span>
                 )}
                 {isMine && (
-                  message.read
+                  message.status === "sending"
+                    ? <Loader2 className="h-3 w-3 text-primary-foreground/40 animate-spin" title="Sending…" />
+                    : message.status === "failed"
+                    ? (
+                      <button onClick={(e) => { e.stopPropagation(); onRetry?.(message); }} title="Tap to retry" className="flex items-center gap-0.5 text-destructive hover:opacity-80">
+                        <AlertCircle className="h-3 w-3" />
+                        <RotateCcw className="h-2.5 w-2.5" />
+                      </button>
+                    )
+                    : message.read
                     ? <CheckCheck className="h-3.5 w-3.5 text-sky-300" title="Seen" />
                     : message.delivered
                     ? <CheckCheck className="h-3.5 w-3.5 text-primary-foreground/50" title="Delivered" />

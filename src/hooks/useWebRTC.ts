@@ -27,7 +27,7 @@ const ICE_SERVERS = [
 type CallState = "idle" | "calling" | "receiving" | "connected";
 
 export interface CallSignal {
-  type: "offer" | "answer" | "ice-candidate" | "end-call" | "reject-call" | "video-toggle";
+  type: "offer" | "answer" | "ice-candidate" | "end-call" | "reject-call" | "video-toggle" | "upgrade-video";
   from: string;
   to: string;
   data?: any;
@@ -403,34 +403,31 @@ export function useWebRTC() {
     }
   }, []);
 
-  const upgradeToVideo = useCallback(async () => {
+  const upgradeToVideo = useCallback(async (notify = true) => {
     if (callTypeRef.current === "video") return;
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
       });
-      // Stop old audio-only stream
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       localStreamRef.current = newStream;
       setLocalStream(newStream);
       callTypeRef.current = "video";
       setCallType("video");
-      // Replace tracks on all peer connections
       const allPCs = [peerConnection.current, ...Array.from(peerConnections.current.values())].filter(Boolean) as RTCPeerConnection[];
       for (const pc of allPCs) {
         for (const track of newStream.getTracks()) {
           const sender = pc.getSenders().find((s) => s.track?.kind === track.kind);
-          if (sender) {
-            await sender.replaceTrack(track).catch(() => {});
-          } else {
-            pc.addTrack(track, newStream);
-          }
+          if (sender) await sender.replaceTrack(track).catch(() => {});
+          else pc.addTrack(track, newStream);
         }
       }
-      // Notify remote
-      const rid = remoteUserIdRef.current;
-      if (rid) sendSignal({ type: "video-toggle", to: rid, data: { videoOff: false } });
+      // Notify remote to also upgrade — only if we initiated
+      if (notify) {
+        const rid = remoteUserIdRef.current;
+        if (rid) sendSignal({ type: "upgrade-video", to: rid });
+      }
     } catch (err) {
       console.error("[WebRTC] upgradeToVideo failed:", err);
     }
@@ -567,6 +564,11 @@ export function useWebRTC() {
             case "video-toggle":
               setRemoteVideoOff(signal.data?.videoOff === true);
               break;
+
+            case "upgrade-video":
+              // Remote peer requested video upgrade — upgrade silently without notifying back
+              upgradeToVideo(false);
+              break;
           }
 
           await supabase.from("call_signals").delete().eq("id", row.id);
@@ -575,7 +577,7 @@ export function useWebRTC() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, cleanup]);
+  }, [user, cleanup, upgradeToVideo]);
 
   useEffect(() => {
     if (callState === "idle") return;
