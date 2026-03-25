@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Star, GitFork, GitCommit, AlertCircle, RefreshCw, ExternalLink, ChevronRight, Circle, GitPullRequest, Plus, GitBranch, Search, FolderOpen, WifiOff, Link2, Check, Sparkles } from "lucide-react";
 import { useGithub } from "@/hooks/useGithub";
 import type { GithubRepo, GithubCommit, GithubIssue } from "@/hooks/useGithub";
+import type { WorkspaceProject } from "@/hooks/useWorkspace";
 
 interface GithubPullRequest {
   id: number;
@@ -34,9 +35,21 @@ interface Props {
   workspaceId?: string | null;
   linkedRepoNames?: string[];
   onLinkRepo?: (repo: GithubRepo) => Promise<void> | void;
+  projects?: WorkspaceProject[];
+  onLinkRepoToProject?: (projectId: string, repoFullName: string) => Promise<void> | void;
 }
 
-const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone, workspaceId, linkedRepoNames = [], onLinkRepo }: Props) => {
+const GithubPanel = ({
+  onClose,
+  onOpenFiles,
+  createIssueFrom,
+  onIssueDone,
+  workspaceId,
+  linkedRepoNames = [],
+  onLinkRepo,
+  projects = [],
+  onLinkRepoToProject,
+}: Props) => {
   const { token, githubUser, repos, loading, error, fetchRepos, searchRepos, fetchCommits, fetchIssues, fetchPRs, createIssue, createRepo, connectWithToken, disconnect } = useGithub();
   const [pat, setPat] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -66,6 +79,7 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone, works
   const [newRepoPrivate, setNewRepoPrivate] = useState(false);
   const [creatingRepo, setCreatingRepo] = useState(false);
   const [createRepoError, setCreateRepoError] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
 
   useEffect(() => { if (token || githubUser) fetchRepos(); }, [token, githubUser, fetchRepos]);
 
@@ -397,6 +411,33 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone, works
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </div>
+
+          {projects.length > 0 && onLinkRepoToProject && (
+            <div className="px-4 py-2 border-b border-border bg-muted/20 flex items-center gap-2 shrink-0">
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="flex-1 bg-muted text-xs text-foreground rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Link this repo to a project</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={async () => {
+                  if (!selectedProjectId) return;
+                  await onLinkRepoToProject(selectedProjectId, selectedRepo.full_name);
+                }}
+                disabled={!selectedProjectId}
+                className="rounded-lg gradient-primary px-3 py-2 text-[11px] font-medium text-white disabled:opacity-40"
+              >
+                Link
+              </button>
+            </div>
+          )}
 
           {/* Repo error */}
           {repoError && (

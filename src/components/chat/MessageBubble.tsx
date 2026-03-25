@@ -38,7 +38,7 @@ interface MessageBubbleProps {
   onReply?: (msg: MessageData) => void;
   onEdit?: (msg: MessageData) => void;
   onDelete?: (msgId: string) => void;
-  onReact?: (msgId: string, emoji: string) => void;
+  onReact?: (emoji: string) => void;
   onPin?: (msgId: string, text: string) => void;
   onForward?: (msg: MessageData) => void;
   onGithubIssue?: (msg: MessageData) => void;
@@ -257,7 +257,7 @@ const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, o
                         onClick={(e) => e.stopPropagation()}
                       >
                         {QUICK_EMOJIS.map((emoji) => (
-                          <button key={emoji} onClick={() => { onReact?.(message.id, emoji); setShowReactPicker(false); }}
+                          <button key={emoji} onClick={() => { onReact?.(emoji); setShowReactPicker(false); }}
                             className="h-8 w-8 rounded-xl hover:bg-muted flex items-center justify-center text-lg transition-colors">
                             {emoji}
                           </button>
@@ -435,7 +435,7 @@ const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, o
             <div className={`flex flex-wrap gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
               {reactions.map((r) => (
                 <motion.button key={r.emoji} whileTap={{ scale: 0.9 }}
-                  onClick={(e) => { e.stopPropagation(); onReact?.(message.id, r.emoji); }}
+                  onClick={(e) => { e.stopPropagation(); onReact?.(r.emoji); }}
                   className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-colors ${
                     r.mine ? "bg-primary/20 border-primary/40 text-primary" : "bg-muted border-border text-foreground"
                   }`}>
