@@ -21,6 +21,7 @@ const ChatPage = () => {
   const {
     chatRooms, activeChat, activeChatId, setActiveChatId,
     messages, sendMessage, createDirectMessage, createGroupChat,
+    acceptRequest, declineRequest,
     removeMember, leaveGroup, promoteToAdmin, demoteAdmin,
     editMessage, deleteMessage, sendSystemMessage,
     isOtherTyping, sendTyping, fetchChatRooms,
@@ -149,6 +150,8 @@ const ChatPage = () => {
                 sendMessage(text, fileUrl, fileType, fileName, replyToId, replyToText, replyToSender)}
               onEditMessage={editMessage}
               onDeleteMessage={deleteMessage}
+              onAcceptRequest={() => acceptRequest(activeChat.id)}
+              onDeclineRequest={() => { declineRequest(activeChat.id); setActiveChatId(null); }}
               onStartCall={handleStartCall}
               onTyping={sendTyping}
               isOtherTyping={isOtherTyping}

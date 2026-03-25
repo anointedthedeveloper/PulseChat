@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, MessageSquarePlus, Users, Settings, X, LogOut, Phone, Video, Mic, CheckCheck, Columns2 } from "lucide-react";
+import { Search, MessageSquarePlus, Users, Settings, X, LogOut, Phone, Video, Mic, CheckCheck, Columns2, UserCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -49,6 +49,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
   const [showProfile, setShowProfile] = useState(false);
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [searching, setSearching] = useState(false);
+  const [activeTab, setActiveTab] = useState<"chats" | "requests">("chats");
   const searchRef = useRef<HTMLDivElement>(null);
   const { user, profile, signOut } = useAuth();
 
@@ -99,9 +100,11 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
       (u.display_name?.toLowerCase().includes(userSearch.toLowerCase()) ?? false)
   );
 
-  const filteredChats = search.trim()
-    ? chats.filter((c) => c.displayName.toLowerCase().includes(search.toLowerCase()))
-    : chats;
+  const acceptedChats = chats.filter((c) => !c.isPending);
+  const requestChats = chats.filter((c) => c.isPending);
+  const displayChats = (activeTab === "requests" ? requestChats : acceptedChats).filter(
+    (c) => !search.trim() || c.displayName.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="h-full flex flex-col bg-sidebar border-r border-sidebar-border">
@@ -296,17 +299,44 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
         )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-sidebar-border shrink-0">
+        <button
+          onClick={() => setActiveTab("chats")}
+          className={`flex-1 text-xs py-2 font-medium transition-colors ${
+            activeTab === "chats" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-sidebar-foreground"
+          }`}
+        >
+          Chats
+        </button>
+        <button
+          onClick={() => setActiveTab("requests")}
+          className={`flex-1 text-xs py-2 font-medium transition-colors flex items-center justify-center gap-1.5 ${
+            activeTab === "requests" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-sidebar-foreground"
+          }`}
+        >
+          Requests
+          {requestChats.length > 0 && (
+            <span className="h-4 min-w-[16px] px-1 rounded-full gradient-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+              {requestChats.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto">
-        {filteredChats.length === 0 && !search && (
+        {displayChats.length === 0 && !search && (
           <div className="px-4 py-10 text-center">
             <div className="h-12 w-12 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-3 opacity-50">
-              <MessageSquarePlus className="h-6 w-6 text-primary-foreground" />
+              {activeTab === "requests" ? <UserCheck className="h-6 w-6 text-primary-foreground" /> : <MessageSquarePlus className="h-6 w-6 text-primary-foreground" />}
             </div>
-            <p className="text-xs text-muted-foreground">No chats yet.<br />Start a new conversation!</p>
+            <p className="text-xs text-muted-foreground">
+              {activeTab === "requests" ? "No message requests" : "No chats yet.\nStart a new conversation!"}
+            </p>
           </div>
         )}
-        {filteredChats.map((chat, i) => (
+        {displayChats.map((chat, i) => (
           <motion.div
             key={chat.id}
             initial={{ opacity: 0, x: -8 }}
@@ -370,7 +400,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
             )}
           </motion.div>
         ))}
-        {filteredChats.length === 0 && search && (
+        {displayChats.length === 0 && search && (
           <p className="text-xs text-muted-foreground text-center py-6">No chats match "{search}"</p>
         )}
       </div>

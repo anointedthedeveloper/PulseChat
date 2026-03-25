@@ -33,6 +33,8 @@ interface ChatPanelProps {
   onSendMessage: (text: string, fileUrl?: string, fileType?: string, fileName?: string, replyToId?: string, replyToText?: string, replyToSender?: string) => void;
   onEditMessage?: (messageId: string, newText: string) => void;
   onDeleteMessage?: (messageId: string) => void;
+  onAcceptRequest?: () => void;
+  onDeclineRequest?: () => void;
   onStartCall: (type: "audio" | "video") => void;
   onTyping?: () => void;
   isOtherTyping?: boolean;
@@ -55,7 +57,7 @@ interface EditState {
   text: string;
 }
 
-const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessage, onStartCall, onTyping, isOtherTyping, onToggleSidebar, onToggleProfile, onCloseChat, profileOpen, isSecondPanel, onToggleSecondProfile }: ChatPanelProps) => {
+const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessage, onAcceptRequest, onDeclineRequest, onStartCall, onTyping, isOtherTyping, onToggleSidebar, onToggleProfile, onCloseChat, profileOpen, isSecondPanel, onToggleSecondProfile }: ChatPanelProps) => {
   const [input, setInput] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -290,6 +292,34 @@ const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessa
         </div>
       </div>
 
+      {/* Message Request Banner */}
+      {chat.isPending && !chat.isRequester && (
+        <div className="px-4 py-3 bg-primary/5 border-b border-border flex flex-col gap-2 shrink-0">
+          <p className="text-xs text-muted-foreground text-center">
+            <span className="font-semibold text-foreground">{chat.displayName}</span> wants to send you a message
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={onDeclineRequest}
+              className="flex-1 text-xs py-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            >
+              Decline
+            </button>
+            <button
+              onClick={onAcceptRequest}
+              className="flex-1 text-xs py-1.5 rounded-lg gradient-primary text-primary-foreground font-medium"
+            >
+              Accept
+            </button>
+          </div>
+        </div>
+      )}
+      {chat.isPending && chat.isRequester && (
+        <div className="px-4 py-2 bg-muted/40 border-b border-border shrink-0">
+          <p className="text-xs text-muted-foreground text-center">Waiting for {chat.displayName} to accept your message request</p>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-3">
         <AnimatePresence initial={false}>
@@ -378,68 +408,69 @@ const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessa
 
       {/* Input */}
       <div className="px-3 py-3 border-t border-border relative shrink-0">
-        {showEmoji && (
-          <EmojiPicker
-            onSelect={(emoji) => { setInput((prev) => prev + emoji); inputRef.current?.focus(); }}
-            onClose={() => setShowEmoji(false)}
-          />
-        )}
-
-        {recording ? (
-          <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5">
-            <div className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
-            <span className="text-sm text-foreground flex-1">{formatRecTime(recordingTime)} Recording...</span>
-            <button onClick={cancelRecording} className="text-muted-foreground hover:text-destructive transition-colors">
-              <X className="h-5 w-5" />
-            </button>
-            <button onClick={stopRecording} className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground">
-              <Send className="h-4 w-4" />
-            </button>
+        {chat.isPending && !chat.isRequester ? (
+          <div className="flex items-center justify-center py-2">
+            <p className="text-xs text-muted-foreground">Accept the request to reply</p>
+          </div>
+        ) : chat.isPending && chat.isRequester && messages.filter(m => m.sender_id === user?.id).length >= 1 ? (
+          <div className="flex items-center justify-center py-2">
+            <p className="text-xs text-muted-foreground">Waiting for reply...</p>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowEmoji(!showEmoji)} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0">
-              <Smile className="h-5 w-5" />
-            </button>
-            <button onClick={() => fileInputRef.current?.click()} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0">
-              <Paperclip className="h-5 w-5" />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip"
-              onChange={handleFileSelect}
-            />
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => { setInput(e.target.value); onTyping?.(); }}
-              onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
-              className="flex-1 bg-muted text-sm text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-2.5 outline-none focus:ring-1 focus:ring-primary transition-all"
-            />
-            {hasInput ? (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleSend}
-                disabled={uploading}
-                className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground shrink-0 disabled:opacity-40 transition-opacity"
-              >
-                <Send className="h-4 w-4" />
-              </motion.button>
-            ) : (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={startRecording}
-                className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground shrink-0"
-              >
-                <Mic className="h-4 w-4" />
-              </motion.button>
+          <>
+            {showEmoji && (
+              <EmojiPicker
+                onSelect={(emoji) => { setInput((prev) => prev + emoji); inputRef.current?.focus(); }}
+                onClose={() => setShowEmoji(false)}
+              />
             )}
-          </div>
+            {recording ? (
+              <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5">
+                <div className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
+                <span className="text-sm text-foreground flex-1">{formatRecTime(recordingTime)} Recording...</span>
+                <button onClick={cancelRecording} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+                <button onClick={stopRecording} className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground">
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowEmoji(!showEmoji)} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0">
+                  <Smile className="h-5 w-5" />
+                </button>
+                <button onClick={() => fileInputRef.current?.click()} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0">
+                  <Paperclip className="h-5 w-5" />
+                </button>
+                <input ref={fileInputRef} type="file" className="hidden"
+                  accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip"
+                  onChange={handleFileSelect}
+                />
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => { setInput(e.target.value); onTyping?.(); }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-muted text-sm text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-2.5 outline-none focus:ring-1 focus:ring-primary transition-all"
+                />
+                {hasInput ? (
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                    onClick={handleSend} disabled={uploading}
+                    className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground shrink-0 disabled:opacity-40 transition-opacity">
+                    <Send className="h-4 w-4" />
+                  </motion.button>
+                ) : (
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                    onClick={startRecording}
+                    className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground shrink-0">
+                    <Mic className="h-4 w-4" />
+                  </motion.button>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

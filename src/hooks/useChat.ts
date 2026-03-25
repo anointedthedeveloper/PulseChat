@@ -9,6 +9,7 @@ interface ChatRoom {
   is_group: boolean;
   created_by: string | null;
   created_at: string;
+  status?: string | null; // 'pending' | 'accepted' | null (null = accepted for old rooms)
 }
 
 interface ChatMember {
@@ -48,6 +49,8 @@ export interface EnrichedChatRoom extends ChatRoom {
   otherMemberStatus?: string;
   onlineCount?: number;
   currentUserRole?: string | null;
+  isPending: boolean;  // true if this DM is awaiting acceptance
+  isRequester: boolean; // true if current user sent the request
 }
 
 export function useChat() {
@@ -127,6 +130,9 @@ export function useChat() {
         : otherMember?.profiles?.display_name || otherMember?.profiles?.username || "Unknown";
       const displayAvatar = displayName[0]?.toUpperCase() || "?";
 
+      const isPending = !room.is_group && (room as any).status === "pending";
+      const isRequester = isPending && room.created_by === user.id;
+
       return {
         ...room,
         members,
@@ -138,6 +144,8 @@ export function useChat() {
         otherMemberStatus: otherMember?.profiles?.status,
         onlineCount,
         currentUserRole,
+        isPending,
+        isRequester,
       };
     });
 
@@ -187,10 +195,20 @@ export function useChat() {
     }
   }, [activeChatId, user]);
 
-  // Send message
+  // Send message — blocked if pending and not the requester, or if requester already sent 1 msg
   const sendMessage = useCallback(
     async (text: string, fileUrl?: string, fileType?: string, fileName?: string, replyToId?: string, replyToText?: string, replyToSender?: string) => {
       if (!user || !activeChatId || (!text.trim() && !fileUrl)) return;
+
+      const activeRoom = chatRooms.find((r) => r.id === activeChatId);
+      if (activeRoom?.isPending) {
+        // Receiver cannot reply until accepted
+        if (!activeRoom.isRequester) return;
+        // Requester limited to 1 message
+        const { count } = await supabase.from("messages").select("id", { count: "exact", head: true })
+          .eq("chat_room_id", activeChatId).eq("sender_id", user.id);
+        if ((count ?? 0) >= 1) return;
+      }
 
       const insertData: any = {
         chat_room_id: activeChatId,
@@ -206,49 +224,32 @@ export function useChat() {
 
       await supabase.from("messages").insert(insertData);
     },
-    [user, activeChatId]
+    [user, activeChatId, chatRooms]
   );
 
-  // Create DM
+  // Create DM — new rooms start as 'pending'
   const createDirectMessage = useCallback(
     async (otherUserId: string) => {
       if (!user) return null;
 
-      // Find existing DM by checking shared non-group rooms
-      const { data: myRooms } = await supabase
-        .from("chat_members")
-        .select("chat_room_id")
-        .eq("user_id", user.id);
-
-      const { data: theirRooms } = await supabase
-        .from("chat_members")
-        .select("chat_room_id")
-        .eq("user_id", otherUserId);
+      const { data: myRooms } = await supabase.from("chat_members").select("chat_room_id").eq("user_id", user.id);
+      const { data: theirRooms } = await supabase.from("chat_members").select("chat_room_id").eq("user_id", otherUserId);
 
       if (myRooms && theirRooms) {
         const myIds = new Set(myRooms.map((r) => r.chat_room_id));
         const shared = theirRooms.find((r) => myIds.has(r.chat_room_id));
         if (shared) {
-          // Verify it's a non-group room
           const { data: roomData } = await supabase
-            .from("chat_rooms")
-            .select("id, is_group")
-            .eq("id", shared.chat_room_id)
-            .eq("is_group", false)
-            .maybeSingle();
-          if (roomData) {
-            await fetchChatRooms();
-            return roomData.id;
-          }
+            .from("chat_rooms").select("id, is_group").eq("id", shared.chat_room_id).eq("is_group", false).maybeSingle();
+          if (roomData) { await fetchChatRooms(); return roomData.id; }
         }
       }
 
-      // Create new DM room
+      // New DM starts as pending
       const { data: newRoom, error } = await supabase
         .from("chat_rooms")
-        .insert({ is_group: false, created_by: user.id })
-        .select()
-        .single();
+        .insert({ is_group: false, created_by: user.id, status: "pending" } as any)
+        .select().single();
 
       if (!newRoom || error) return null;
 
@@ -262,6 +263,16 @@ export function useChat() {
     },
     [user, fetchChatRooms]
   );
+
+  const acceptRequest = useCallback(async (chatRoomId: string) => {
+    await supabase.from("chat_rooms").update({ status: "accepted" } as any).eq("id", chatRoomId);
+    await fetchChatRooms();
+  }, [fetchChatRooms]);
+
+  const declineRequest = useCallback(async (chatRoomId: string) => {
+    await supabase.from("chat_rooms").delete().eq("id", chatRoomId);
+    await fetchChatRooms();
+  }, [fetchChatRooms]);
 
   // Create group chat
   const createGroupChat = useCallback(
@@ -496,6 +507,8 @@ export function useChat() {
     messages,
     sendMessage,
     createDirectMessage,
+    acceptRequest,
+    declineRequest,
     createGroupChat,
     removeMember,
     leaveGroup,
