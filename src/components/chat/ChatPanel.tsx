@@ -7,6 +7,7 @@ import MessageBubble from "./MessageBubble";
 import AvatarBubble from "./AvatarBubble";
 import EmojiPicker from "./EmojiPicker";
 import FilePreview from "./FilePreview";
+import TypingIndicator from "./TypingIndicator";
 import type { EnrichedChatRoom } from "@/hooks/useChat";
 
 interface Message {
@@ -25,9 +26,11 @@ interface ChatPanelProps {
   messages: Message[];
   onSendMessage: (text: string, fileUrl?: string, fileType?: string, fileName?: string) => void;
   onStartCall: (type: "audio" | "video") => void;
+  onTyping?: () => void;
+  isOtherTyping?: boolean;
 }
 
-const ChatPanel = ({ chat, messages, onSendMessage, onStartCall }: ChatPanelProps) => {
+const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOtherTyping }: ChatPanelProps) => {
   const [input, setInput] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -134,7 +137,7 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall }: ChatPanelProp
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-4">
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {messages.map((msg) => (
             <MessageBubble
               key={msg.id}
@@ -152,6 +155,7 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall }: ChatPanelProp
             />
           ))}
         </AnimatePresence>
+        {isOtherTyping && <TypingIndicator />}
         <div ref={messagesEndRef} />
       </div>
 
@@ -196,7 +200,7 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall }: ChatPanelProp
           <input
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); onTyping?.(); }}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             className="flex-1 bg-muted text-sm text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-2.5 outline-none focus:ring-1 focus:ring-primary transition-all"

@@ -19,6 +19,8 @@ const ChatPage = () => {
     sendMessage,
     createDirectMessage,
     createGroupChat,
+    isOtherTyping,
+    sendTyping,
   } = useChat();
 
   const {
@@ -91,6 +93,8 @@ const ChatPage = () => {
             messages={messages}
             onSendMessage={(text, fileUrl, fileType, fileName) => sendMessage(text, fileUrl, fileType, fileName)}
             onStartCall={handleStartCall}
+            onTyping={sendTyping}
+            isOtherTyping={isOtherTyping}
           />
         ) : (
           <EmptyChatPanel />

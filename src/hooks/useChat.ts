@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -48,6 +48,9 @@ export function useChat() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeChat = chatRooms.find((c) => c.id === activeChatId) || null;
 
@@ -279,6 +282,46 @@ export function useChat() {
     fetchMessages();
   }, [fetchMessages]);
 
+  // Typing indicator via Realtime presence
+  useEffect(() => {
+    if (typingChannelRef.current) {
+      supabase.removeChannel(typingChannelRef.current);
+      typingChannelRef.current = null;
+    }
+    setIsOtherTyping(false);
+    if (!activeChatId || !user) return;
+
+    const channel = supabase.channel(`typing:${activeChatId}`, {
+      config: { presence: { key: user.id } },
+    });
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState<{ typing: boolean }>();
+        const others = Object.entries(state)
+          .filter(([key]) => key !== user.id)
+          .some(([, presences]) => presences.some((p) => p.typing));
+        setIsOtherTyping(others);
+      })
+      .subscribe();
+
+    typingChannelRef.current = channel;
+    return () => { supabase.removeChannel(channel); };
+  }, [activeChatId, user]);
+
+  const sendTyping = useCallback(() => {
+    const channel = typingChannelRef.current;
+    if (!channel || !user) return;
+    channel.track({ typing: true });
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => channel.track({ typing: false }), 2000);
+  }, [user]);
+
+  // Request push notification permission
+  useEffect(() => {
+    if (!user || !("Notification" in window)) return;
+    if (Notification.permission === "default") Notification.requestPermission();
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
 
@@ -289,38 +332,42 @@ export function useChat() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
+        async (payload) => {
           const newMsg = payload.new as Message;
-          // If it's for the active chat, add to messages
           if (newMsg.chat_room_id === activeChatId) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
             });
-            // Mark as read
             if (newMsg.sender_id !== user.id) {
-              supabase
-                .from("messages")
-                .update({ is_read: true })
-                .eq("id", newMsg.id);
+              supabase.from("messages").update({ is_read: true }).eq("id", newMsg.id);
+            }
+          } else if (newMsg.sender_id !== user.id && document.hidden) {
+            // Push notification when app is in background
+            if (Notification.permission === "granted") {
+              const { data: sender } = await supabase
+                .from("profiles")
+                .select("display_name, username")
+                .eq("id", newMsg.sender_id)
+                .single();
+              const name = sender?.display_name || sender?.username || "Someone";
+              new Notification(`New message from ${name}`, {
+                body: newMsg.content,
+                icon: "/favicon.ico",
+              });
             }
           }
-          // Refresh chat list
           fetchChatRooms();
         }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles" },
-        () => {
-          fetchChatRooms();
-        }
+        () => { fetchChatRooms(); }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user, activeChatId, fetchChatRooms]);
 
   return {
@@ -334,5 +381,7 @@ export function useChat() {
     createGroupChat,
     loading,
     fetchChatRooms,
+    isOtherTyping,
+    sendTyping,
   };
 }
