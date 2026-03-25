@@ -212,6 +212,13 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh, onRemov
       {avatarLightbox && profile?.avatar_url && (
         <AvatarLightbox url={profile.avatar_url} name={chat.displayName} onClose={() => setAvatarLightbox(false)} />
       )}
+      {cropSrc && (
+        <ImageCropper
+          src={cropSrc}
+          onCrop={handleCroppedIcon}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
     <AnimatePresence>
       {open && (
         <>
