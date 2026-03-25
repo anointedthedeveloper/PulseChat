@@ -33,6 +33,16 @@ export interface GithubIssue {
   labels: { name: string; color: string }[];
 }
 
+export interface GithubCreatedRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  default_branch: string;
+  private: boolean;
+  description: string | null;
+}
+
 const GH_TOKEN_KEY = "chatflow_github_token";
 const GH_USER_KEY  = "chatflow_github_user";
 
@@ -161,6 +171,31 @@ export function useGithub() {
     } catch { return []; }
   }, [ghFetch]);
 
+  const createRepo = useCallback(async (
+    name: string,
+    options?: { description?: string; isPrivate?: boolean; autoInit?: boolean }
+  ): Promise<GithubCreatedRepo | null> => {
+    if (!token) return null;
+    try {
+      const res = await fetch("https://api.github.com/user/repos", {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          description: options?.description || "",
+          private: options?.isPrivate ?? false,
+          auto_init: options?.autoInit ?? true,
+        }),
+      });
+      if (!res.ok) return null;
+      return res.json();
+    } catch { return null; }
+  }, [token]);
+
   const commitFile = useCallback(async (
     owner: string, repo: string, path: string, content: string, message: string, sha: string, branch: string
   ): Promise<boolean> => {
@@ -187,7 +222,7 @@ export function useGithub() {
     token, githubUser, repos, loading, error,
     connectWithToken, disconnect, fetchRepos, searchRepos,
     fetchRepoPreview, fetchCommits, fetchIssues,
-    createIssue, fetchPRs, fetchBranches, commitFile,
+    createIssue, fetchPRs, fetchBranches, createRepo, commitFile,
     parseGithubUrl,
   };
 }

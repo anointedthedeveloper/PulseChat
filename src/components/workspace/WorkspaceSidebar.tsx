@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Hash, Plus, Copy, LogIn, ChevronDown, ChevronRight, Megaphone, CheckSquare, Users, Settings, MessageSquare, LayoutDashboard } from "lucide-react";
+import { Hash, Plus, Copy, LogIn, ChevronDown, ChevronRight, Megaphone, CheckSquare, Users, Settings, MessageSquare, LayoutDashboard, FolderKanban, Github } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import AvatarBubble from "@/components/chat/AvatarBubble";
-import type { Workspace, Channel, WorkspaceMember, Task } from "@/hooks/useWorkspace";
+import type { Workspace, Channel, WorkspaceMember, Task, WorkspaceProject } from "@/hooks/useWorkspace";
 
 export const DEV_STATUSES = [
   { id: "online",    label: "Online",         color: "bg-green-500" },
@@ -21,6 +21,8 @@ interface Props {
   channels: Channel[];
   members: WorkspaceMember[];
   tasks: Task[];
+  projects: WorkspaceProject[];
+  linkedRepoCount: number;
   activeChannelId: string | null;
   onSelectWorkspace: (ws: Workspace) => void;
   onSelectChannel: (ch: Channel) => void;
@@ -29,12 +31,13 @@ interface Props {
   onCreateChannel: () => void;
   onSetDevStatus: (status: string) => void;
   onOpenTasks: () => void;
+  onOpenProjects: () => void;
 }
 
 const WorkspaceSidebar = ({
-  workspaces, activeWorkspace, channels, members, tasks,
+  workspaces, activeWorkspace, channels, members, tasks, projects, linkedRepoCount,
   activeChannelId, onSelectWorkspace, onSelectChannel,
-  onCreateWorkspace, onJoinWorkspace, onCreateChannel, onSetDevStatus, onOpenTasks,
+  onCreateWorkspace, onJoinWorkspace, onCreateChannel, onSetDevStatus, onOpenTasks, onOpenProjects,
 }: Props) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -46,6 +49,7 @@ const WorkspaceSidebar = ({
   const myMember = members.find((m) => m.user_id === user?.id);
   const myStatus = DEV_STATUSES.find((s) => s.id === (myMember?.dev_status || "online")) || DEV_STATUSES[0];
   const openTasks = tasks.filter((t) => t.status !== "done").length;
+  const activeProjects = projects.filter((project) => project.status !== "shipped").length;
 
   const copyInvite = () => {
     if (!activeWorkspace) return;
@@ -118,6 +122,18 @@ const WorkspaceSidebar = ({
               <span className="h-4 min-w-[16px] px-1 rounded-full gradient-primary text-[9px] font-bold text-white flex items-center justify-center">{openTasks}</span>
             )}
           </button>
+          <button onClick={onOpenProjects} className="mx-3 mt-1 flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-sidebar-accent transition-colors text-sm text-muted-foreground hover:text-foreground">
+            <FolderKanban className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1 text-left">Projects</span>
+            {activeProjects > 0 && (
+              <span className="h-4 min-w-[16px] px-1 rounded-full bg-sidebar-accent text-[9px] font-bold text-foreground flex items-center justify-center">{activeProjects}</span>
+            )}
+          </button>
+          <div className="mx-3 mt-1 px-2 py-1.5 rounded-lg bg-sidebar-accent/60 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Github className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1">Linked repos</span>
+            <span className="font-semibold text-foreground">{linkedRepoCount}</span>
+          </div>
 
           <div className="flex-1 overflow-y-auto">
             {/* Channels */}

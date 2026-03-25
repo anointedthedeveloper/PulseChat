@@ -47,6 +47,17 @@ export interface Task {
   created_at: string;
 }
 
+export interface WorkspaceProject {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  status: "planning" | "active" | "paused" | "shipped";
+  linked_repo_full_name: string | null;
+  created_by: string;
+  created_at: string;
+}
+
 export function useWorkspace() {
   const { user } = useAuth();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -54,6 +65,7 @@ export function useWorkspace() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchWorkspaces = useCallback(async () => {
@@ -113,10 +125,19 @@ export function useWorkspace() {
     setTasks((data as Task[]) || []);
   }, []);
 
+  const fetchProjects = useCallback(async (workspaceId: string) => {
+    const { data } = await supabase
+      .from("workspace_projects")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false });
+    setProjects((data as WorkspaceProject[]) || []);
+  }, []);
+
   const selectWorkspace = useCallback(async (ws: Workspace) => {
     setActiveWorkspace(ws);
-    await Promise.all([fetchChannels(ws.id), fetchMembers(ws.id), fetchTasks(ws.id)]);
-  }, [fetchChannels, fetchMembers, fetchTasks]);
+    await Promise.all([fetchChannels(ws.id), fetchMembers(ws.id), fetchTasks(ws.id), fetchProjects(ws.id)]);
+  }, [fetchChannels, fetchMembers, fetchTasks, fetchProjects]);
 
   const createWorkspace = useCallback(async (name: string, description?: string) => {
     if (!user) return null;
@@ -191,6 +212,34 @@ export function useWorkspace() {
     await fetchTasks(workspaceId);
   }, [fetchTasks]);
 
+  const createProject = useCallback(async (
+    workspaceId: string,
+    name: string,
+    description?: string,
+    linkedRepoFullName?: string | null,
+  ) => {
+    if (!user) return null;
+    const { data } = await supabase
+      .from("workspace_projects")
+      .insert({
+        workspace_id: workspaceId,
+        name,
+        description: description || null,
+        linked_repo_full_name: linkedRepoFullName || null,
+        status: "planning",
+        created_by: user.id,
+      } as never)
+      .select()
+      .single();
+    if (data) await fetchProjects(workspaceId);
+    return data as WorkspaceProject | null;
+  }, [fetchProjects, user]);
+
+  const updateProjectStatus = useCallback(async (projectId: string, status: WorkspaceProject["status"], workspaceId: string) => {
+    await supabase.from("workspace_projects").update({ status } as never).eq("id", projectId);
+    await fetchProjects(workspaceId);
+  }, [fetchProjects]);
+
   const addMember = useCallback(async (workspaceId: string, username: string) => {
     const { data: profile } = await supabase
       .from("profiles")
@@ -209,8 +258,8 @@ export function useWorkspace() {
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
 
   return {
-    workspaces, activeWorkspace, channels, members, tasks, loading,
+    workspaces, activeWorkspace, channels, members, tasks, projects, loading,
     fetchWorkspaces, selectWorkspace, createWorkspace, joinWorkspace,
-    createChannel, setDevStatus, createTask, updateTaskStatus, addMember, fetchTasks,
+    createChannel, setDevStatus, createTask, updateTaskStatus, createProject, updateProjectStatus, addMember, fetchTasks, fetchProjects,
   };
 }

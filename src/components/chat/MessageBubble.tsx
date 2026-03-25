@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, CheckCheck, FileText, Download, Play, Pause, Phone, Video, Reply, X, Pencil, Trash2, Copy, Pin, SmilePlus, Forward, Loader2, AlertCircle, RotateCcw } from "lucide-react";
+import { Check, CheckCheck, FileText, Download, Play, Pause, Phone, Video, Reply, X, Pencil, Trash2, Copy, Pin, SmilePlus, Forward, Loader2, AlertCircle, RotateCcw, Github } from "lucide-react";
 import { Highlight, themes } from "prism-react-renderer";
+import type { Language } from "prism-react-renderer";
 import GithubRepoCard from "@/components/github/GithubRepoCard";
 import { useGithub } from "@/hooks/useGithub";
 
@@ -21,6 +22,12 @@ interface MessageData {
   replyTo?: { text: string; senderName: string } | null;
   reactions?: Reaction[];
   status?: "sending" | "failed" | "sent";
+  githubIssueLink?: {
+    number: number;
+    title: string;
+    url: string;
+    repoFullName: string;
+  } | null;
 }
 
 interface MessageBubbleProps {
@@ -34,6 +41,7 @@ interface MessageBubbleProps {
   onReact?: (msgId: string, emoji: string) => void;
   onPin?: (msgId: string, text: string) => void;
   onForward?: (msg: MessageData) => void;
+  onGithubIssue?: (msg: MessageData) => void;
   onRetry?: (msg: MessageData) => void;
   showDate?: boolean;
 }
@@ -82,7 +90,7 @@ const CodeBlock = ({ code, lang }: { code: string; lang: string }) => {
           <Copy className="h-3 w-3" />{copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      <Highlight theme={themes.nightOwl} code={code} language={lang as any || "text"}>
+      <Highlight theme={themes.nightOwl} code={code} language={(lang || "text") as Language}>
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
           <pre className={`${className} text-xs p-3 overflow-x-auto m-0`} style={{ ...style, background: "rgba(0,0,0,0.5)", maxWidth: 320 }}>
             {tokens.map((line, i) => (
@@ -147,7 +155,7 @@ export const DateSeparator = ({ date }: { date: Date }) => (
   </div>
 );
 
-const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, onDelete, onReact, onPin, onForward, onRetry, showDate }: MessageBubbleProps) => {
+const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, onDelete, onReact, onPin, onForward, onGithubIssue, onRetry, showDate }: MessageBubbleProps) => {
   const [lightbox, setLightbox] = useState(false);
   const [showReactPicker, setShowReactPicker] = useState(false);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -269,6 +277,11 @@ const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, o
                   <Forward className="h-3.5 w-3.5 text-muted-foreground" />
                 </motion.button>
                 <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                  onClick={(e) => { e.stopPropagation(); onGithubIssue?.(message); }}
+                  className="h-7 w-7 rounded-full bg-card border border-border flex items-center justify-center shadow-sm">
+                  <Github className="h-3.5 w-3.5 text-muted-foreground" />
+                </motion.button>
+                <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                   onClick={(e) => { e.stopPropagation(); onPin?.(message.id, message.text); }}
                   className="h-7 w-7 rounded-full bg-card border border-border flex items-center justify-center shadow-sm">
                   <Pin className="h-3.5 w-3.5 text-muted-foreground" />
@@ -364,6 +377,24 @@ const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, o
 
             {/* GitHub repo preview */}
             {githubRepo && <GithubRepoCard owner={githubRepo.owner} repo={githubRepo.repo} isMine={isMine} />}
+
+            {message.githubIssueLink && (
+              <a
+                href={message.githubIssueLink.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={`mt-2 flex items-start gap-2 rounded-xl border px-2.5 py-2 text-left transition-opacity hover:opacity-90 ${
+                  isMine ? "border-white/15 bg-white/10" : "border-border bg-background/70"
+                }`}
+              >
+                <Github className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[11px] opacity-70">{message.githubIssueLink.repoFullName} · Issue #{message.githubIssueLink.number}</p>
+                  <p className="text-xs font-medium line-clamp-2">{message.githubIssueLink.title}</p>
+                </div>
+              </a>
+            )}
 
             {/* Timestamp + read receipt */}
             {!isCall && (

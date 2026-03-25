@@ -1,17 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Hash, ArrowLeft, Send, Smile, X, Users, UserPlus, MessageSquare, Github, LayoutDashboard, FolderOpen } from "lucide-react";
+import { Hash, Send, Smile, X, Users, UserPlus, MessageSquare, Github, LayoutDashboard, Link2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useGithub } from "@/hooks/useGithub";
+import { useWorkspaceGithub } from "@/hooks/useWorkspaceGithub";
 import WorkspaceSidebar from "@/components/workspace/WorkspaceSidebar";
 import TasksPanel from "@/components/workspace/TasksPanel";
+import ProjectsPanel from "@/components/workspace/ProjectsPanel";
 import GithubPanel from "@/components/github/GithubPanel";
 import RepoFileBrowser from "@/components/github/RepoFileBrowser";
 import MessageBubble from "@/components/chat/MessageBubble";
 import EmojiPicker from "@/components/chat/EmojiPicker";
-import type { Channel } from "@/hooks/useWorkspace";
+import type { Channel, Workspace } from "@/hooks/useWorkspace";
+import type { GithubRepo } from "@/hooks/useGithub";
 
 interface Message {
   id: string;
@@ -32,18 +37,27 @@ const WorkspacePage = () => {
   const {
     workspaces, activeWorkspace, channels, members, tasks, loading,
     selectWorkspace, createWorkspace, joinWorkspace, createChannel,
-    setDevStatus, createTask, updateTaskStatus, addMember,
+    setDevStatus, createTask, updateTaskStatus, projects, createProject, updateProjectStatus, addMember,
   } = useWorkspace();
+  const { token: githubToken, createIssue } = useGithub();
+  const {
+    linkedRepos,
+    messageLinks,
+    fetchLinkedRepos,
+    fetchMessageLinks,
+    linkRepo,
+    saveIssueLink,
+  } = useWorkspaceGithub();
 
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [showTasks, setShowTasks] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
   const [showGithub, setShowGithub] = useState(false);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
   const [fileBrowserRepo, setFileBrowserRepo] = useState<{ owner: string; repo: string; branch: string } | null>(null);
-  const [githubIssueFrom, setGithubIssueFrom] = useState<{ title: string; body: string } | null>(null);
   const [showCreateWs, setShowCreateWs] = useState(false);
   const [showJoinWs, setShowJoinWs] = useState(false);
   const [showCreateCh, setShowCreateCh] = useState(false);
@@ -57,6 +71,11 @@ const WorkspacePage = () => {
   const [addSuccess, setAddSuccess] = useState("");
   const [taskFromMsg, setTaskFromMsg] = useState<{ id: string; content: string } | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
+  const [githubIssueFrom, setGithubIssueFrom] = useState<{ id: string; content: string } | null>(null);
+  const [githubIssueTitle, setGithubIssueTitle] = useState("");
+  const [githubIssueBody, setGithubIssueBody] = useState("");
+  const [selectedLinkedRepoId, setSelectedLinkedRepoId] = useState("");
+  const [creatingGithubIssue, setCreatingGithubIssue] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-select first workspace
@@ -74,7 +93,13 @@ const WorkspacePage = () => {
       const still = channels.find((c) => c.id === activeChannel.id);
       if (!still) setActiveChannel(channels[0]);
     }
-  }, [channels]);
+  }, [channels, activeChannel]);
+
+  useEffect(() => {
+    if (!activeWorkspace) return;
+    fetchLinkedRepos(activeWorkspace.id);
+    fetchMessageLinks(activeWorkspace.id);
+  }, [activeWorkspace, fetchLinkedRepos, fetchMessageLinks]);
 
   // Fetch messages for active channel
   useEffect(() => {
@@ -102,7 +127,7 @@ const WorkspacePage = () => {
       workspace_id: activeWorkspace?.id,
       sender_id: user.id,
       content,
-    } as any);
+    } as never);
   }, [user, activeChannel, activeWorkspace, input]);
 
   const handleConvertToTask = useCallback((msgId: string, content: string) => {
@@ -118,6 +143,71 @@ const WorkspacePage = () => {
     setShowTasks(true);
   }, [activeWorkspace, taskTitle, activeChannel, taskFromMsg, createTask]);
 
+  const handleOpenGithubIssue = useCallback((message: { id: string; text: string }) => {
+    setGithubIssueFrom({ id: message.id, content: message.text });
+    setGithubIssueTitle(message.text.split("\n")[0].slice(0, 120));
+    setGithubIssueBody(`Created from ChatFlow message:\n\n${message.text}`);
+    setSelectedLinkedRepoId((prev) => prev || linkedRepos[0]?.id || "");
+  }, [linkedRepos]);
+
+  const handleCreateGithubIssue = useCallback(async () => {
+    if (!activeWorkspace || !githubIssueFrom || !githubIssueTitle.trim()) return;
+
+    const repoLink = linkedRepos.find((repo) => repo.id === selectedLinkedRepoId) || linkedRepos[0];
+    if (!repoLink) {
+      toast.error("Link a GitHub repo to this workspace first");
+      return;
+    }
+
+    setCreatingGithubIssue(true);
+    const created = await createIssue(
+      repoLink.repo_owner,
+      repoLink.repo_name,
+      githubIssueTitle.trim(),
+      githubIssueBody.trim(),
+    );
+
+    if (!created) {
+      toast.error("Could not create the GitHub issue");
+      setCreatingGithubIssue(false);
+      return;
+    }
+
+    const saved = await saveIssueLink(
+      activeWorkspace.id,
+      activeChannel?.id || null,
+      githubIssueFrom.id,
+      repoLink.repo_full_name,
+      {
+        number: created.number,
+        title: githubIssueTitle.trim(),
+        html_url: created.html_url,
+      },
+    );
+
+    if (!saved.ok) {
+      toast.error(saved.error || "Issue created, but linking it to the message failed");
+    } else {
+      toast.success(`Issue #${created.number} created in ${repoLink.repo_full_name}`);
+    }
+
+    setGithubIssueFrom(null);
+    setGithubIssueTitle("");
+    setGithubIssueBody("");
+    setCreatingGithubIssue(false);
+  }, [activeWorkspace, activeChannel, createIssue, githubIssueBody, githubIssueFrom, githubIssueTitle, linkedRepos, saveIssueLink, selectedLinkedRepoId]);
+
+  const handleLinkRepoToWorkspace = useCallback(async (repo: GithubRepo) => {
+    if (!activeWorkspace) return;
+    const result = await linkRepo(activeWorkspace.id, repo);
+    if (!result.ok) toast.error(result.error || "Could not link repo");
+    else toast.success(`${repo.full_name} linked to ${activeWorkspace.name}`);
+  }, [activeWorkspace, linkRepo]);
+
+  const messageLinkById = useCallback((messageId: string) => {
+    return messageLinks.find((link) => link.message_id === messageId && link.github_type === "issue") || null;
+  }, [messageLinks]);
+
   const handleAddPeople = useCallback(async () => {
     if (!activeWorkspace || !addUsername.trim()) return;
     setAddError("");
@@ -127,7 +217,7 @@ const WorkspacePage = () => {
     else { setAddSuccess(`@${addUsername.trim()} added!`); setAddUsername(""); }
   }, [activeWorkspace, addUsername, addMember]);
 
-  const handleSelectWorkspace = useCallback(async (ws: any) => {
+  const handleSelectWorkspace = useCallback(async (ws: Workspace) => {
     setActiveChannel(null);
     await selectWorkspace(ws);
   }, [selectWorkspace]);
@@ -151,10 +241,6 @@ const WorkspacePage = () => {
     if (ch) { setShowCreateCh(false); setChName(""); setActiveChannel(ch); }
   }, [activeWorkspace, chName, createChannel]);
 
-  const senderProfile = useCallback((senderId: string) => {
-    return members.find((m) => m.user_id === senderId)?.profiles;
-  }, [members]);
-
   return (
     <div className="h-screen flex overflow-hidden bg-background">
       {/* Sidebar */}
@@ -165,6 +251,8 @@ const WorkspacePage = () => {
           channels={channels}
           members={members}
           tasks={tasks}
+          projects={projects}
+          linkedRepoCount={linkedRepos.length}
           activeChannelId={activeChannel?.id || null}
           onSelectWorkspace={handleSelectWorkspace}
           onSelectChannel={setActiveChannel}
@@ -173,6 +261,7 @@ const WorkspacePage = () => {
           onCreateChannel={() => setShowCreateCh(true)}
           onSetDevStatus={(s) => activeWorkspace && setDevStatus(activeWorkspace.id, s)}
           onOpenTasks={() => setShowTasks((v) => !v)}
+          onOpenProjects={() => setShowProjects((v) => !v)}
         />
       </div>
 
@@ -190,6 +279,12 @@ const WorkspacePage = () => {
               <h2 className="text-sm font-semibold text-foreground">{activeChannel.name}</h2>
               {activeChannel.description && <p className="text-[11px] text-muted-foreground">{activeChannel.description}</p>}
             </div>
+            {activeWorkspace && (
+              <div className="hidden xl:flex items-center gap-2 text-[11px]">
+                <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">{projects.length} projects</span>
+                <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">{linkedRepos.length} repos</span>
+              </div>
+            )}
             <button onClick={() => { setShowAddPeople(true); setAddError(""); setAddSuccess(""); setAddUsername(""); }}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted">
               <UserPlus className="h-3.5 w-3.5" /> Add people
@@ -237,7 +332,7 @@ const WorkspacePage = () => {
               {messages.map((msg, i) => {
                 const prev = messages[i - 1];
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString();
-                const profile = senderProfile(msg.sender_id);
+                const issueLink = messageLinkById(msg.id);
                 return (
                   <MessageBubble
                     key={msg.id}
@@ -252,10 +347,17 @@ const WorkspacePage = () => {
                       fileType: msg.file_type || undefined,
                       fileName: msg.file_name || undefined,
                       replyTo: msg.reply_to_text ? { text: msg.reply_to_text, senderName: msg.reply_to_sender || "Unknown" } : null,
+                      githubIssueLink: issueLink ? {
+                        number: issueLink.external_number,
+                        title: issueLink.external_title,
+                        url: issueLink.external_url,
+                        repoFullName: issueLink.repo_full_name,
+                      } : null,
                     }}
                     isMine={msg.sender_id === user?.id}
                     reactions={[]}
                     onForward={() => handleConvertToTask(msg.id, msg.content)}
+                    onGithubIssue={() => handleOpenGithubIssue({ id: msg.id, text: msg.content })}
                     onReply={() => {}}
                   />
                 );
@@ -305,14 +407,30 @@ const WorkspacePage = () => {
             )}
           </AnimatePresence>
 
+          <AnimatePresence>
+            {showProjects && activeWorkspace && (
+              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 384, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
+                <ProjectsPanel
+                  projects={projects}
+                  linkedRepos={linkedRepos.map((repo) => repo.repo_full_name)}
+                  workspaceId={activeWorkspace.id}
+                  onCreateProject={(name, description, linkedRepoFullName) => createProject(activeWorkspace.id, name, description, linkedRepoFullName)}
+                  onUpdateStatus={(projectId, status) => updateProjectStatus(projectId, status, activeWorkspace.id)}
+                  onClose={() => setShowProjects(false)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* GitHub panel */}
           <AnimatePresence>
             {showGithub && (
               <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 320, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
                 <GithubPanel
                   onClose={() => setShowGithub(false)}
-                  createIssueFrom={githubIssueFrom}
-                  onIssueDone={() => setGithubIssueFrom(null)}
+                  workspaceId={activeWorkspace?.id || null}
+                  linkedRepoNames={linkedRepos.map((repo) => repo.repo_full_name)}
+                  onLinkRepo={handleLinkRepoToWorkspace}
                   onOpenFiles={(owner, repo, branch) => {
                     setFileBrowserRepo({ owner, repo, branch });
                     setShowFileBrowser(true);
@@ -326,7 +444,7 @@ const WorkspacePage = () => {
           {/* Repo file browser */}
           <AnimatePresence>
             {showFileBrowser && fileBrowserRepo && (
-              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 600, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 980, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
                 <RepoFileBrowser
                   owner={fileBrowserRepo.owner}
                   repo={fileBrowserRepo.repo}
@@ -362,6 +480,106 @@ const WorkspacePage = () => {
                   Create Task
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {githubIssueFrom && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+            onClick={() => setGithubIssueFrom(null)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-card rounded-2xl w-full max-w-lg p-5 border border-border shadow-2xl"
+              onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Convert Message to GitHub Issue</h3>
+                  <p className="text-xs text-muted-foreground mt-1">Create a tracked issue without leaving chat.</p>
+                </div>
+                <button onClick={() => setGithubIssueFrom(null)} className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="bg-muted rounded-xl px-3 py-2.5 mb-4">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Message</p>
+                <p className="text-xs text-foreground whitespace-pre-wrap line-clamp-4">{githubIssueFrom.content}</p>
+              </div>
+
+              {linkedRepos.length > 0 ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Linked repo</label>
+                    <select
+                      value={selectedLinkedRepoId || linkedRepos[0]?.id || ""}
+                      onChange={(e) => setSelectedLinkedRepoId(e.target.value)}
+                      className="mt-1 w-full bg-muted text-sm text-foreground rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      {linkedRepos.map((repo) => (
+                        <option key={repo.id} value={repo.id}>
+                          {repo.repo_full_name} ({repo.default_branch})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Issue title</label>
+                    <input
+                      value={githubIssueTitle}
+                      onChange={(e) => setGithubIssueTitle(e.target.value)}
+                      className="mt-1 w-full bg-muted text-sm text-foreground rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Issue body</label>
+                    <textarea
+                      value={githubIssueBody}
+                      onChange={(e) => setGithubIssueBody(e.target.value)}
+                      rows={7}
+                      className="mt-1 w-full bg-muted text-sm text-foreground rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary resize-none"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-muted rounded-xl px-4 py-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Link2 className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium">No linked repos yet</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">Open the GitHub panel, connect your account, and link at least one repo to this workspace first.</p>
+                  <button
+                    onClick={() => {
+                      setGithubIssueFrom(null);
+                      setShowGithub(true);
+                    }}
+                    className="text-xs gradient-primary text-white px-3 py-2 rounded-xl font-medium"
+                  >
+                    Open GitHub Panel
+                  </button>
+                </div>
+              )}
+
+              {linkedRepos.length > 0 && (
+                <div className="mt-4 flex gap-2">
+                  <button onClick={() => setGithubIssueFrom(null)} className="flex-1 py-2 rounded-xl bg-muted text-sm text-muted-foreground">Cancel</button>
+                  <button
+                    onClick={handleCreateGithubIssue}
+                    disabled={!githubToken || !githubIssueTitle.trim() || creatingGithubIssue}
+                    className="flex-1 py-2 rounded-xl gradient-primary text-sm text-white font-medium disabled:opacity-40"
+                  >
+                    {creatingGithubIssue ? "Creating..." : "Create Issue"}
+                  </button>
+                </div>
+              )}
+
+              {!githubToken && linkedRepos.length > 0 && (
+                <p className="text-xs text-destructive mt-3">Connect GitHub first so ChatFlow can create issues on your behalf.</p>
+              )}
             </motion.div>
           </motion.div>
         )}

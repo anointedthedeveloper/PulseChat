@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Star, GitFork, GitCommit, AlertCircle, RefreshCw, ExternalLink, ChevronRight, Circle, GitPullRequest, Plus, GitBranch, Search, FolderOpen, WifiOff } from "lucide-react";
+import { X, Star, GitFork, GitCommit, AlertCircle, RefreshCw, ExternalLink, ChevronRight, Circle, GitPullRequest, Plus, GitBranch, Search, FolderOpen, WifiOff, Link2, Check, Sparkles } from "lucide-react";
 import { useGithub } from "@/hooks/useGithub";
 import type { GithubRepo, GithubCommit, GithubIssue } from "@/hooks/useGithub";
+
+interface GithubPullRequest {
+  id: number;
+  number: number;
+  title: string;
+  html_url: string;
+  created_at: string;
+  user?: { login: string } | null;
+  head?: { ref: string } | null;
+  base?: { ref: string } | null;
+}
 
 const LANG_COLORS: Record<string, string> = {
   TypeScript: "#3178c6", JavaScript: "#f1e05a", Python: "#3572A5",
@@ -20,16 +31,19 @@ interface Props {
   onOpenFiles?: (owner: string, repo: string, branch: string) => void;
   createIssueFrom?: { title: string; body: string } | null;
   onIssueDone?: () => void;
+  workspaceId?: string | null;
+  linkedRepoNames?: string[];
+  onLinkRepo?: (repo: GithubRepo) => Promise<void> | void;
 }
 
-const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Props) => {
-  const { token, githubUser, repos, loading, error, fetchRepos, searchRepos, fetchCommits, fetchIssues, fetchPRs, createIssue, connectWithToken, disconnect } = useGithub();
+const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone, workspaceId, linkedRepoNames = [], onLinkRepo }: Props) => {
+  const { token, githubUser, repos, loading, error, fetchRepos, searchRepos, fetchCommits, fetchIssues, fetchPRs, createIssue, createRepo, connectWithToken, disconnect } = useGithub();
   const [pat, setPat] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<GithubRepo | null>(null);
   const [commits, setCommits] = useState<GithubCommit[]>([]);
   const [issues, setIssues] = useState<GithubIssue[]>([]);
-  const [prs, setPrs] = useState<any[]>([]);
+  const [prs, setPrs] = useState<GithubPullRequest[]>([]);
   const [repoTab, setRepoTab] = useState<"commits" | "issues" | "prs" | "files">("commits");
   const [repoLoading, setRepoLoading] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
@@ -45,8 +59,15 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
   const [creatingIssue, setCreatingIssue] = useState(false);
   const [issueResult, setIssueResult] = useState<{ number: number; url: string } | null>(null);
   const [issueError, setIssueError] = useState<string | null>(null);
+  const [linkingRepo, setLinkingRepo] = useState<string | null>(null);
+  const [showCreateRepo, setShowCreateRepo] = useState(false);
+  const [newRepoName, setNewRepoName] = useState("");
+  const [newRepoDescription, setNewRepoDescription] = useState("");
+  const [newRepoPrivate, setNewRepoPrivate] = useState(false);
+  const [creatingRepo, setCreatingRepo] = useState(false);
+  const [createRepoError, setCreateRepoError] = useState<string | null>(null);
 
-  useEffect(() => { if (token || githubUser) fetchRepos(); }, [token, githubUser]);
+  useEffect(() => { if (token || githubUser) fetchRepos(); }, [token, githubUser, fetchRepos]);
 
   useEffect(() => {
     if (createIssueFrom && selectedRepo) {
@@ -68,7 +89,7 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
       setSearching(false);
     }, 400);
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
-  }, [search]);
+  }, [search, searchRepos]);
 
   const handleConnect = async () => {
     if (!pat.trim()) return;
@@ -90,10 +111,34 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
       setCommits(c);
       setIssues(i);
       setPrs(p);
-    } catch (e: any) {
+    } catch {
       setRepoError("Failed to load repo data. Check your token permissions.");
     }
     setRepoLoading(false);
+  };
+
+  const handleCreateRepo = async () => {
+    if (!newRepoName.trim()) return;
+    setCreatingRepo(true);
+    setCreateRepoError(null);
+    const created = await createRepo(newRepoName.trim(), {
+      description: newRepoDescription.trim(),
+      isPrivate: newRepoPrivate,
+      autoInit: true,
+    });
+    if (!created) {
+      setCreateRepoError("Could not create repo. Check token permissions.");
+      setCreatingRepo(false);
+      return;
+    }
+    setShowCreateRepo(false);
+    setNewRepoName("");
+    setNewRepoDescription("");
+    setNewRepoPrivate(false);
+    await fetchRepos();
+    const matching = repos.find((repo) => repo.full_name === created.full_name);
+    if (matching) await handleSelectRepo(matching);
+    setCreatingRepo(false);
   };
 
   const handleCreateIssue = async () => {
@@ -126,6 +171,7 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
 
   const RepoRow = ({ repo }: { repo: GithubRepo }) => {
     const langColor = repo.language ? (LANG_COLORS[repo.language] || "#8b949e") : null;
+    const isLinked = linkedRepoNames.includes(repo.full_name);
     return (
       <div className="border-b border-border/50">
         <button onClick={() => handleSelectRepo(repo)}
@@ -143,6 +189,25 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
             </div>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
+            {workspaceId && onLinkRepo && (
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setLinkingRepo(repo.full_name);
+                  await onLinkRepo(repo);
+                  setLinkingRepo(null);
+                }}
+                disabled={isLinked || linkingRepo === repo.full_name}
+                className={`text-[10px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 ${
+                  isLinked
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {isLinked ? <Check className="h-3 w-3" /> : <Link2 className="h-3 w-3" />}
+                {isLinked ? "Linked" : linkingRepo === repo.full_name ? "Linking..." : "Link"}
+              </button>
+            )}
             {onOpenFiles && (
               <button onClick={e => { e.stopPropagation(); const [o, n] = repo.full_name.split("/"); onOpenFiles(o, n, repo.default_branch); }}
                 className="text-[10px] text-primary hover:underline px-1.5 py-0.5 rounded hover:bg-primary/10 transition-colors flex items-center gap-1">
@@ -166,6 +231,12 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
           {githubUser && <span className="text-xs text-muted-foreground">@{githubUser}</span>}
         </div>
         <div className="flex items-center gap-1">
+          {token && (
+            <button onClick={() => setShowCreateRepo((value) => !value)} className="h-7 rounded-lg px-2 flex items-center justify-center hover:bg-muted text-muted-foreground text-[11px] gap-1">
+              <Plus className="h-3.5 w-3.5" />
+              Repo
+            </button>
+          )}
           {(token || githubUser) && (
             <button onClick={fetchRepos} className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground" title="Refresh all repos">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -208,6 +279,39 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
       {/* Connected — repo list */}
       {(token || githubUser) && !selectedRepo && (
         <div className="flex-1 flex flex-col overflow-hidden">
+          {showCreateRepo && (
+            <div className="mx-3 mt-3 rounded-2xl border border-border bg-muted/20 p-3 space-y-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <p className="text-xs font-semibold">Create a new repository</p>
+              </div>
+              <input
+                value={newRepoName}
+                onChange={(e) => setNewRepoName(e.target.value)}
+                placeholder="repo-name"
+                className="w-full bg-muted text-xs text-foreground rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary font-mono"
+              />
+              <textarea
+                value={newRepoDescription}
+                onChange={(e) => setNewRepoDescription(e.target.value)}
+                placeholder="Description"
+                rows={3}
+                className="w-full bg-muted text-xs text-foreground rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary resize-none"
+              />
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" checked={newRepoPrivate} onChange={(e) => setNewRepoPrivate(e.target.checked)} />
+                Private repository
+              </label>
+              {createRepoError && <p className="text-[11px] text-destructive">{createRepoError}</p>}
+              <div className="flex gap-2">
+                <button onClick={() => setShowCreateRepo(false)} className="flex-1 py-2 rounded-lg bg-muted text-xs text-muted-foreground">Cancel</button>
+                <button onClick={handleCreateRepo} disabled={!newRepoName.trim() || creatingRepo}
+                  className="flex-1 py-2 rounded-lg gradient-primary text-xs text-white font-medium disabled:opacity-40">
+                  {creatingRepo ? "Creating..." : "Create Repo"}
+                </button>
+              </div>
+            </div>
+          )}
           {/* Search */}
           <div className="px-3 py-2 border-b border-border shrink-0">
             <div className="relative">
@@ -220,7 +324,11 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
             {search && searchResults !== null && (
               <p className="text-[10px] text-muted-foreground mt-1">{searchResults.length} result{searchResults.length !== 1 ? "s" : ""} for "{search}"</p>
             )}
-            {!search && <p className="text-[10px] text-muted-foreground mt-1">{repos.length} repos loaded</p>}
+            {!search && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {repos.length} repos loaded{workspaceId ? ` • ${linkedRepoNames.length} linked to workspace` : ""}
+              </p>
+            )}
           </div>
 
           {/* Error banner */}
@@ -261,6 +369,24 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
             <button onClick={() => { setSelectedRepo(null); setShowCreateIssue(false); setIssueResult(null); setRepoError(null); }}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">← Back</button>
             <span className="text-sm font-semibold truncate flex-1">{selectedRepo.name}</span>
+            {workspaceId && onLinkRepo && (
+              <button
+                onClick={async () => {
+                  setLinkingRepo(selectedRepo.full_name);
+                  await onLinkRepo(selectedRepo);
+                  setLinkingRepo(null);
+                }}
+                disabled={linkedRepoNames.includes(selectedRepo.full_name) || linkingRepo === selectedRepo.full_name}
+                className={`text-[10px] px-2 py-1 rounded-lg flex items-center gap-1 shrink-0 ${
+                  linkedRepoNames.includes(selectedRepo.full_name)
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {linkedRepoNames.includes(selectedRepo.full_name) ? <Check className="h-3 w-3" /> : <Link2 className="h-3 w-3" />}
+                {linkedRepoNames.includes(selectedRepo.full_name) ? "Linked" : linkingRepo === selectedRepo.full_name ? "Linking..." : "Link repo"}
+              </button>
+            )}
             {onOpenFiles && (
               <button onClick={() => { const [o, n] = selectedRepo.full_name.split("/"); onOpenFiles(o, n, selectedRepo.default_branch); }}
                 className="text-[10px] text-primary hover:underline shrink-0 flex items-center gap-1">
@@ -372,7 +498,7 @@ const GithubPanel = ({ onClose, onOpenFiles, createIssueFrom, onIssueDone }: Pro
             {!repoLoading && repoTab === "prs" && (
               <div>
                 {prs.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">No open PRs</p>}
-                {prs.map((pr: any) => (
+                {prs.map((pr) => (
                   <a key={pr.id} href={pr.html_url} target="_blank" rel="noopener noreferrer"
                     className="flex items-start gap-3 px-4 py-3 hover:bg-muted transition-colors border-b border-border/50">
                     <GitPullRequest className="h-4 w-4 text-primary shrink-0 mt-0.5" />
