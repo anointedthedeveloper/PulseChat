@@ -24,6 +24,7 @@ const ProjectsPanel = ({ projects, linkedRepos, projectFiles, onCreateProject, o
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [linkedRepo, setLinkedRepo] = useState("");
+  const [repoPickerProjectId, setRepoPickerProjectId] = useState<string | null>(null);
   const filesByProject = useMemo(() => {
     return projectFiles.reduce<Record<string, WorkspaceProjectFile[]>>((acc, file) => {
       if (!acc[file.project_id]) acc[file.project_id] = [];
@@ -51,6 +52,9 @@ const ProjectsPanel = ({ projects, linkedRepos, projectFiles, onCreateProject, o
         <button onClick={onClose} className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground">
           <X className="h-4 w-4" />
         </button>
+      </div>
+      <div className="px-4 py-2 border-b border-border bg-background/60 text-[11px] text-muted-foreground">
+        Link a repo from the GitHub panel or choose one inside each project card.
       </div>
 
       <div className="p-3 border-b border-border bg-muted/20 space-y-2">
@@ -119,16 +123,38 @@ const ProjectsPanel = ({ projects, linkedRepos, projectFiles, onCreateProject, o
                   )}
                 </div>
                 <div className="space-y-2">
-                  <select
-                    value={project.linked_repo_full_name || ""}
-                    onChange={(e) => onUpdateRepo(project.id, e.target.value || null)}
-                    className="w-full bg-muted text-[11px] text-foreground rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">No linked repo</option>
-                    {linkedRepos.map((repo) => (
-                      <option key={`${project.id}-${repo}`} value={repo}>{repo}</option>
-                    ))}
-                  </select>
+                  {!project.linked_repo_full_name && repoPickerProjectId !== project.id && (
+                    <button
+                      onClick={() => setRepoPickerProjectId(project.id)}
+                      className="w-full flex items-center justify-between rounded-xl border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Link2 className="h-3.5 w-3.5" />
+                        Link repo to project
+                      </span>
+                      <span className="text-[10px] opacity-70">Choose repo</span>
+                    </button>
+                  )}
+                  {(project.linked_repo_full_name || repoPickerProjectId === project.id) && (
+                    <select
+                      value={project.linked_repo_full_name || ""}
+                      onChange={(e) => {
+                        onUpdateRepo(project.id, e.target.value || null);
+                        setRepoPickerProjectId(null);
+                      }}
+                      className="w-full bg-muted text-[11px] text-foreground rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">
+                        {linkedRepos.length > 0 ? "No linked repo" : "Link a workspace repo first"}
+                      </option>
+                      {linkedRepos.map((repo) => (
+                        <option key={`${project.id}-${repo}`} value={repo}>{repo}</option>
+                      ))}
+                    </select>
+                  )}
+                  {!project.linked_repo_full_name && linkedRepos.length === 0 && (
+                    <p className="text-[10px] text-muted-foreground">Open the GitHub panel and link a workspace repo first.</p>
+                  )}
                   {!!filesByProject[project.id]?.length && (
                     <div className="rounded-xl border border-border bg-muted/30 p-2">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Imported files</p>

@@ -1,8 +1,8 @@
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import ChatPage from "./ChatPage";
-import LandingPage from "./LandingPage";
+import LoginPage from "./LoginPage";
 
-const Index = () => {
+const AuthRoutePage = () => {
   const { loading, user } = useAuth();
 
   if (loading) {
@@ -13,7 +13,7 @@ const Index = () => {
     );
   }
 
-  return user ? <ChatPage /> : <LandingPage />;
+  return user ? <Navigate to="/" replace /> : <LoginPage />;
 };
 
-export default Index;
+export default AuthRoutePage;

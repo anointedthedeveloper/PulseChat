@@ -438,6 +438,11 @@ const GithubPanel = ({
               </button>
             </div>
           )}
+          {projects.length > 0 && onLinkRepoToProject && (
+            <div className="px-4 pb-2 text-[11px] text-muted-foreground">
+              Tip: select a project here to link this repository directly to it.
+            </div>
+          )}
 
           {/* Repo error */}
           {repoError && (

@@ -4,6 +4,7 @@ import { Highlight, themes } from "prism-react-renderer";
 import type { Language } from "prism-react-renderer";
 import { useGithub } from "@/hooks/useGithub";
 import type { WorkspaceProject } from "@/hooks/useWorkspace";
+import { useThemeContext } from "@/context/ThemeContext";
 
 interface TreeNode {
   path: string;
@@ -93,6 +94,7 @@ const previewDoc = (path: string, content: string) => {
 
 const RepoFileBrowser = ({ owner, repo, defaultBranch, projects = [], onImportToProject, onClose }: Props) => {
   const { token, commitFile } = useGithub();
+  const { mode } = useThemeContext();
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = useState<TreeNode | null>(null);
@@ -306,6 +308,11 @@ const RepoFileBrowser = ({ owner, repo, defaultBranch, projects = [], onImportTo
   const showPreview = viewMode === "preview" || viewMode === "split";
   const preview = selectedFile ? previewDoc(selectedFile.path, currentContent) : "";
   const markdownPreview = useMemo(() => isMarkdown ? markdownBlocks(currentContent) : null, [currentContent, isMarkdown]);
+  const codeTheme = mode === "light" ? themes.github : themes.nightOwl;
+  const editorSurface = mode === "light" ? "hsl(var(--background))" : "#0f172a";
+  const editorText = mode === "light" ? "hsl(var(--foreground))" : "#dbeafe";
+  const consoleSurface = mode === "light" ? "hsl(var(--card))" : "#090d18";
+  const consoleText = mode === "light" ? "hsl(var(--foreground))" : "#e2e8f0";
 
   return (
     <div className={fullscreen ? "fixed inset-0 z-50 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.10),_transparent_24%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--background)))]" : "h-full w-[980px] border-l border-border bg-background shrink-0"}>
@@ -381,14 +388,14 @@ const RepoFileBrowser = ({ owner, repo, defaultBranch, projects = [], onImportTo
                   {showCode && (
                     <div className={`${showPreview ? "w-1/2 border-r border-border/70" : "w-full"} overflow-auto`}>
                       {loadingFile ? <p className="text-xs text-muted-foreground text-center py-8">Loading file...</p> : editing ? (
-                        <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full h-full bg-[#0f172a] text-[#dbeafe] text-xs font-mono p-4 outline-none resize-none leading-6" style={{ minHeight: "100%", tabSize: 2 }} spellCheck={false} />
+                        <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full h-full text-xs font-mono p-4 outline-none resize-none leading-6" style={{ minHeight: "100%", tabSize: 2, background: editorSurface, color: editorText }} spellCheck={false} />
                       ) : (
-                        <Highlight theme={themes.nightOwl} code={currentContent} language={language}>
+                        <Highlight theme={codeTheme} code={currentContent} language={language}>
                           {({ className, style, tokens, getLineProps, getTokenProps }) => (
-                            <pre className={`${className} text-xs p-4 m-0 min-h-full`} style={{ ...style, background: "#0f172a", fontSize: "11px" }}>
+                            <pre className={`${className} text-xs p-4 m-0 min-h-full`} style={{ ...style, background: editorSurface, fontSize: "11px" }}>
                               {tokens.map((line, index) => (
                                 <div key={index} {...getLineProps({ line })} className="flex">
-                                  <span className="select-none text-white/20 mr-4 text-[10px] w-8 text-right shrink-0">{index + 1}</span>
+                                  <span className="select-none mr-4 text-[10px] w-8 text-right shrink-0 opacity-40">{index + 1}</span>
                                   <span>{line.map((token, tokenIndex) => <span key={tokenIndex} {...getTokenProps({ token })} />)}</span>
                                 </div>
                               ))}
@@ -418,16 +425,16 @@ const RepoFileBrowser = ({ owner, repo, defaultBranch, projects = [], onImportTo
                   )}
                 </div>
 
-                <div className="h-44 border-t border-border/70 bg-[#090d18] text-slate-200 flex flex-col">
+                <div className="h-44 border-t border-border/70 flex flex-col" style={{ background: consoleSurface, color: consoleText }}>
                   <div className="px-3 py-2 border-b border-white/10 flex items-center gap-2 text-xs"><TerminalSquare className="h-4 w-4 text-primary" />Console</div>
                   <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 text-xs font-mono">
-                    {consoleLines.map((line) => <div key={line.id} className={line.kind === "stderr" ? "text-rose-300" : line.kind === "stdout" ? "text-emerald-300" : line.kind === "input" ? "text-sky-300" : "text-slate-400"}>{line.kind === "input" ? "> " : ""}{line.text}</div>)}
+                    {consoleLines.map((line) => <div key={line.id} className={line.kind === "stderr" ? "text-rose-400" : line.kind === "stdout" ? "text-emerald-400" : line.kind === "input" ? "text-sky-400" : "opacity-65"}>{line.kind === "input" ? "> " : ""}{line.text}</div>)}
                     <div ref={consoleEndRef} />
                   </div>
                   <div className="border-t border-white/10 p-2">
-                    <div className="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-2">
-                      <span className="text-sky-300 font-mono text-xs">&gt;</span>
-                      <input value={consoleInput} onChange={(e) => setConsoleInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && runConsoleCommand()} placeholder="help | run | preview | info | clear" className="flex-1 bg-transparent text-xs text-white outline-none" />
+                    <div className="flex items-center gap-2 rounded-lg px-2 py-2" style={{ background: mode === "light" ? "hsl(var(--muted))" : "rgba(255,255,255,0.05)" }}>
+                      <span className="text-sky-400 font-mono text-xs">&gt;</span>
+                      <input value={consoleInput} onChange={(e) => setConsoleInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && runConsoleCommand()} placeholder="help | run | preview | info | clear" className="flex-1 bg-transparent text-xs outline-none" style={{ color: consoleText }} />
                     </div>
                   </div>
                 </div>

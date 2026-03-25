@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound.tsx";
 import SettingsPage from "./pages/SettingsPage.tsx";
 import WorkspacePage from "./pages/WorkspacePage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
+import AuthRoutePage from "./pages/AuthRoutePage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<AuthRoutePage />} />
               <Route path="/workspace" element={<WorkspacePage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/settings" element={<SettingsPage />} />
