@@ -92,6 +92,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Realtime: keep own profile in sync (avatar, display name, etc.)
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`own-profile-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        (payload) => { if (payload.new) setProfile(payload.new as Profile); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
   const signUp = async (email: string, password: string, username: string) => {
     const { error } = await supabase.auth.signUp({
       email,

@@ -475,6 +475,11 @@ export function useChat() {
       )
       .on(
         "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "chat_rooms" },
+        () => { fetchChatRooms(); }
+      )
+      .on(
+        "postgres_changes",
         { event: "UPDATE", schema: "public", table: "messages" },
         (payload) => {
           const updated = payload.new as Message;

@@ -103,7 +103,11 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh, onRemov
     const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
     if (!error) {
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      setGroupIcon(`${data.publicUrl}?t=${Date.now()}`);
+      const newIcon = `${data.publicUrl}?t=${Date.now()}`;
+      setGroupIcon(newIcon);
+      // Save icon_url immediately so other members see it via realtime
+      await supabase.from("chat_rooms").update({ icon_url: data.publicUrl }).eq("id", chat.id);
+      onRefresh?.();
     }
     setUploadingIcon(false);
     e.target.value = "";
