@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Smile, Paperclip, Phone, Video, ChevronLeft, Info, Mic, MicOff, X, Reply } from "lucide-react";
+import { Send, Smile, Paperclip, Phone, Video, ChevronLeft, Info, Mic, X, Reply, Columns2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,7 @@ interface ChatPanelProps {
   onToggleSidebar?: () => void;
   onToggleProfile?: () => void;
   profileOpen?: boolean;
+  isSecondPanel?: boolean;
 }
 
 interface ReplyState {
@@ -42,7 +43,7 @@ interface ReplyState {
   senderName: string;
 }
 
-const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOtherTyping, onToggleSidebar, onToggleProfile, profileOpen }: ChatPanelProps) => {
+const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOtherTyping, onToggleSidebar, onToggleProfile, profileOpen, isSecondPanel }: ChatPanelProps) => {
   const [input, setInput] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -138,7 +139,7 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
         setUploading(true);
         const result = await uploadFile(file);
         if (result) {
-          onSendMessage("🎤 Voice message", result.url, "audio/webm", result.name, replyTo?.id, replyTo?.text, replyTo?.senderName);
+          onSendMessage("Voice message", result.url, "audio/webm", result.name, replyTo?.id, replyTo?.text, replyTo?.senderName);
           setReplyTo(null);
         }
         setUploading(false);
@@ -191,21 +192,30 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground truncate">{chat.displayName}</h2>
               <p className="text-[11px] text-muted-foreground">
-                {chat.is_group ? `${chat.members.length} members` : chat.otherMemberStatus === "online" ? "🟢 Online" : "⚫ Offline"}
+                {chat.is_group ? `${chat.members.length} members` : chat.otherMemberStatus === "online" ? "Online" : "Offline"}
               </p>
             </div>
           </button>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => onStartCall("audio")} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-            <Phone className="h-4 w-4" />
-          </button>
-          <button onClick={() => onStartCall("video")} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-            <Video className="h-4 w-4" />
-          </button>
-          <button onClick={onToggleProfile} className={`h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors ${profileOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`}>
-            <Info className="h-4 w-4" />
-          </button>
+          {isSecondPanel && (
+            <button onClick={onToggleSidebar} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Close split view">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+          {!isSecondPanel && (
+            <>
+              <button onClick={() => onStartCall("audio")} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                <Phone className="h-4 w-4" />
+              </button>
+              <button onClick={() => onStartCall("video")} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                <Video className="h-4 w-4" />
+              </button>
+              <button onClick={onToggleProfile} className={`h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors ${profileOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`}>
+                <Info className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 

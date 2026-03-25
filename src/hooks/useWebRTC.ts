@@ -197,6 +197,36 @@ export function useWebRTC() {
     }
   }, [user, createPeerConnection, sendSignal, cleanup, getOrCreateCallRoom]);
 
+  // startGroupCall — sends offer to all members
+  const startGroupCall = useCallback(async (memberIds: string[], type: "audio" | "video", chatRoomId: string) => {
+    if (!user) return;
+    callTypeRef.current = type;
+    setCallType(type);
+    setCallState("calling");
+    chatRoomIdRef.current = chatRoomId;
+    ringtoneRef.current.start();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === "video" });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+
+      // Send offer to each member
+      for (const memberId of memberIds) {
+        const pc = createPeerConnection(memberId);
+        stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await sendSignal({ type: "offer", to: memberId, data: offer, callType: type, chatRoomId });
+      }
+      setRemoteUserId(memberIds[0]);
+      remoteUserIdRef.current = memberIds[0];
+    } catch (err) {
+      console.error("startGroupCall failed:", err);
+      cleanup("no-answer");
+    }
+  }, [user, createPeerConnection, sendSignal, cleanup]);
+
   // acceptCall takes the stored signal directly — no window lookup needed
   const acceptCall = useCallback(async (signal: CallSignal) => {
     if (!user || !signal.data) return;
@@ -340,6 +370,6 @@ export function useWebRTC() {
   return {
     callState, callType, remoteUserId, remoteUsername,
     localStream, remoteStream, callDuration,
-    startCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo,
+    startCall, startGroupCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo,
   };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, MessageSquarePlus, Users, Settings, X, LogOut, Phone, Video, Mic, CheckCheck } from "lucide-react";
+import { Search, MessageSquarePlus, Users, Settings, X, LogOut, Phone, Video, Mic, CheckCheck, Columns2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import AvatarBubble from "./AvatarBubble";
@@ -13,6 +13,8 @@ interface ChatSidebarProps {
   onSelectChat: (id: string) => void;
   onCreateDM: (userId: string) => void;
   onCreateGroup: (name: string, memberIds: string[]) => void;
+  onOpenSecondChat?: (id: string) => void;
+  secondChatId?: string | null;
 }
 
 interface UserProfile {
@@ -34,7 +36,7 @@ const formatTimestamp = (dateStr?: string) => {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
-const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGroup }: ChatSidebarProps) => {
+const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGroup, onOpenSecondChat, secondChatId }: ChatSidebarProps) => {
   const [search, setSearch] = useState("");
   const [showNewChat, setShowNewChat] = useState(false);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
@@ -294,47 +296,57 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
           </div>
         )}
         {filteredChats.map((chat) => (
-          <button
+          <div
             key={chat.id}
-            onClick={() => onSelectChat(chat.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-sidebar-accent/40 border-l-2 ${
-              chat.id === activeChatId
-                ? "bg-sidebar-accent/60 border-primary"
-                : "border-transparent"
+            className={`group flex items-center gap-3 px-4 py-3 transition-all hover:bg-sidebar-accent/40 border-l-2 cursor-pointer ${
+              chat.id === activeChatId ? "bg-sidebar-accent/60 border-primary" : "border-transparent"
             }`}
           >
-            <AvatarBubble
-              letter={chat.displayAvatar}
-              status={chat.is_group ? undefined : (chat.otherMemberStatus as "online" | "offline" | undefined)}
-              imageUrl={chat.is_group ? null : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
-            />
-            <div className="flex-1 min-w-0 text-left">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-sm font-medium text-sidebar-foreground truncate flex items-center gap-1.5">
-                  {chat.is_group && <Users className="h-3 w-3 text-muted-foreground shrink-0" />}
-                  {chat.displayName}
-                </span>
-                <span className="text-[10px] text-muted-foreground shrink-0">
-                  {formatTimestamp(chat.lastMessage?.created_at)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between mt-0.5 gap-1">
-                <div className="flex items-center gap-1 min-w-0 flex-1">
-                  {chat.lastMessage?.file_type === "call/audio" && <Phone className="h-3 w-3 text-muted-foreground shrink-0" />}
-                  {chat.lastMessage?.file_type === "call/video" && <Video className="h-3 w-3 text-muted-foreground shrink-0" />}
-                  {chat.lastMessage?.file_type?.startsWith("audio/") && <Mic className="h-3 w-3 text-muted-foreground shrink-0" />}
-                  <p className="text-xs text-muted-foreground truncate">
-                    {chat.lastMessage?.content || "No messages yet"}
-                  </p>
-                </div>
-                {chat.unreadCount > 0 && (
-                  <span className="shrink-0 h-5 min-w-[20px] px-1.5 rounded-full gradient-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                    {chat.unreadCount}
+            <div className="flex-1 flex items-center gap-3 min-w-0" onClick={() => onSelectChat(chat.id)}>
+              <AvatarBubble
+                letter={chat.displayAvatar}
+                status={chat.is_group ? undefined : (chat.otherMemberStatus as "online" | "offline" | undefined)}
+                imageUrl={chat.is_group ? null : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
+              />
+              <div className="flex-1 min-w-0 text-left">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-sm font-medium text-sidebar-foreground truncate flex items-center gap-1.5">
+                    {chat.is_group && <Users className="h-3 w-3 text-muted-foreground shrink-0" />}
+                    {chat.displayName}
                   </span>
-                )}
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {formatTimestamp(chat.lastMessage?.created_at)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-0.5 gap-1">
+                  <div className="flex items-center gap-1 min-w-0 flex-1">
+                    {chat.lastMessage?.file_type === "call/audio" && <Phone className="h-3 w-3 text-muted-foreground shrink-0" />}
+                    {chat.lastMessage?.file_type === "call/video" && <Video className="h-3 w-3 text-muted-foreground shrink-0" />}
+                    {chat.lastMessage?.file_type?.startsWith("audio/") && <Mic className="h-3 w-3 text-muted-foreground shrink-0" />}
+                    <p className="text-xs text-muted-foreground truncate">
+                      {chat.lastMessage?.content || "No messages yet"}
+                    </p>
+                  </div>
+                  {chat.unreadCount > 0 && (
+                    <span className="shrink-0 h-5 min-w-[20px] px-1.5 rounded-full gradient-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                      {chat.unreadCount}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </button>
+            {onOpenSecondChat && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onOpenSecondChat(chat.id); }}
+                title="Open in split view"
+                className={`opacity-0 group-hover:opacity-100 h-6 w-6 rounded flex items-center justify-center transition-all shrink-0 ${
+                  secondChatId === chat.id ? "opacity-100 text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+                }`}
+              >
+                <Columns2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         ))}
         {filteredChats.length === 0 && search && (
           <p className="text-xs text-muted-foreground text-center py-6">No chats match "{search}"</p>

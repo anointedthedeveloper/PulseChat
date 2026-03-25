@@ -30,23 +30,25 @@ const CallOverlay = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
 
-  // Assign streams as soon as they arrive
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
+    if (localVideoRef.current) {
       localVideoRef.current.srcObject = localStream;
     }
   }, [localStream]);
 
   useEffect(() => {
-    if (remoteStream) {
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
-      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream;
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = remoteStream;
     }
   }, [remoteStream]);
 
   if (callState === "idle") return null;
 
-  const showVideo = callType === "video";
+  const isVideo = callType === "video";
+  const isConnected = callState === "connected";
 
   return (
     <motion.div
@@ -55,41 +57,33 @@ const CallOverlay = ({
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col"
     >
-      {/* Background */}
-      <div className={`absolute inset-0 ${showVideo && callState === "connected" ? "bg-black" : "bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900"}`} />
+      <div className={`absolute inset-0 ${isVideo && isConnected ? "bg-black" : "bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900"}`} />
 
-      {/* Remote video — full screen when connected */}
-      {showVideo && callState === "connected" && (
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      )}
-
-      {/* Local video preview — show whenever we have a video stream */}
-      {showVideo && localStream && (
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`absolute z-10 rounded-xl object-cover border-2 border-primary shadow-lg ${
-            callState === "connected"
-              ? "bottom-28 right-4 w-28 h-20"
-              : "inset-0 w-full h-full opacity-60"
-          }`}
-        />
-      )}
-
-      {/* Audio element for remote audio */}
+      {/* Always render video elements so refs are always attached */}
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isVideo && isConnected && remoteStream ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      />
+      <video
+        ref={localVideoRef}
+        autoPlay
+        playsInline
+        muted
+        className={`absolute z-10 rounded-xl object-cover border-2 border-primary shadow-lg transition-all duration-300 ${
+          isVideo && localStream
+            ? isConnected
+              ? "bottom-28 right-4 w-28 h-20 opacity-100"
+              : "inset-0 w-full h-full opacity-60 rounded-none border-0"
+            : "opacity-0 pointer-events-none w-0 h-0"
+        }`}
+      />
       <audio ref={remoteAudioRef} autoPlay />
 
-      {/* Center content */}
+      {/* Center info */}
       <div className="relative z-20 flex flex-col items-center justify-center flex-1 gap-5 px-6">
-        {/* Only show avatar/info when not in full video mode */}
-        {!(showVideo && callState === "connected") && (
+        {!(isVideo && isConnected && remoteStream) && (
           <>
             <div className="relative flex items-center justify-center">
               {(callState === "calling" || callState === "receiving") && [1, 2, 3].map((i) => (
@@ -115,9 +109,7 @@ const CallOverlay = ({
             </div>
           </>
         )}
-
-        {/* Duration overlay for video calls */}
-        {showVideo && callState === "connected" && (
+        {isVideo && isConnected && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-sm px-4 py-1.5 rounded-full">
             <span className="text-white text-sm font-medium">{formatDuration(callDuration)}</span>
           </div>
@@ -126,25 +118,20 @@ const CallOverlay = ({
 
       {/* Controls */}
       <div className="relative z-20 pb-12 flex flex-col items-center gap-5">
-        {callState === "connected" && (
+        {isConnected && (
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => { setIsMuted(!isMuted); onToggleMute(); }}
-              className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isMuted ? "bg-white/30 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"}`}
-            >
+            <button onClick={() => { setIsMuted(!isMuted); onToggleMute(); }}
+              className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isMuted ? "bg-white/30 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"}`}>
               {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
             </button>
-            {callType === "video" && (
-              <button
-                onClick={() => { setIsVideoOff(!isVideoOff); onToggleVideo(); }}
-                className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isVideoOff ? "bg-white/30 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"}`}
-              >
+            {isVideo && (
+              <button onClick={() => { setIsVideoOff(!isVideoOff); onToggleVideo(); }}
+                className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isVideoOff ? "bg-white/30 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"}`}>
                 {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
               </button>
             )}
           </div>
         )}
-
         <div className="flex items-center gap-8">
           {callState === "receiving" && (
             <>
@@ -162,7 +149,7 @@ const CallOverlay = ({
               </div>
             </>
           )}
-          {(callState === "calling" || callState === "connected") && (
+          {(callState === "calling" || isConnected) && (
             <div className="flex flex-col items-center gap-2">
               <button onClick={onEnd} className="h-16 w-16 rounded-full bg-destructive flex items-center justify-center shadow-lg hover:bg-destructive/80 transition-colors">
                 <PhoneOff className="h-7 w-7 text-white" />

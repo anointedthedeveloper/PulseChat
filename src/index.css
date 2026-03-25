@@ -95,8 +95,8 @@
     --sidebar-ring: 252 87% 60%;
   }
 
-  /* ── THEME: OCEAN ── */
-  .theme-ocean {
+  /* ── THEME: OCEAN (dark) ── */
+  .dark.theme-ocean, .theme-ocean {
     --background: 210 50% 8%;
     --foreground: 200 30% 92%;
     --card: 210 45% 12%;
@@ -117,8 +117,26 @@
     --sidebar-border: 210 40% 10%;
   }
 
-  /* ── THEME: FOREST ── */
-  .theme-forest {
+  /* ── THEME: OCEAN (light) ── */
+  .light.theme-ocean {
+    --background: 200 40% 96%;
+    --foreground: 210 50% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 50% 10%;
+    --primary: 199 89% 40%;
+    --muted: 200 30% 92%;
+    --muted-foreground: 210 20% 45%;
+    --border: 200 25% 85%;
+    --input: 200 25% 85%;
+    --received: 200 30% 90%;
+    --sidebar-background: 200 35% 92%;
+    --sidebar-foreground: 210 50% 12%;
+    --sidebar-accent: 200 25% 86%;
+    --sidebar-border: 200 25% 84%;
+  }
+
+  /* ── THEME: FOREST (dark) ── */
+  .dark.theme-forest, .theme-forest {
     --background: 150 30% 8%;
     --foreground: 140 20% 90%;
     --card: 150 28% 12%;
@@ -139,8 +157,26 @@
     --sidebar-border: 150 25% 10%;
   }
 
-  /* ── THEME: ROSE ── */
-  .theme-rose {
+  /* ── THEME: FOREST (light) ── */
+  .light.theme-forest {
+    --background: 140 30% 96%;
+    --foreground: 150 35% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 150 35% 10%;
+    --primary: 142 60% 35%;
+    --muted: 140 20% 92%;
+    --muted-foreground: 150 15% 45%;
+    --border: 140 20% 85%;
+    --input: 140 20% 85%;
+    --received: 140 20% 90%;
+    --sidebar-background: 140 25% 92%;
+    --sidebar-foreground: 150 35% 12%;
+    --sidebar-accent: 140 18% 86%;
+    --sidebar-border: 140 18% 84%;
+  }
+
+  /* ── THEME: ROSE (dark) ── */
+  .dark.theme-rose, .theme-rose {
     --background: 340 30% 8%;
     --foreground: 340 20% 92%;
     --card: 340 28% 12%;
@@ -159,6 +195,24 @@
     --sidebar-foreground: 340 20% 88%;
     --sidebar-accent: 340 25% 13%;
     --sidebar-border: 340 25% 10%;
+  }
+
+  /* ── THEME: ROSE (light) ── */
+  .light.theme-rose {
+    --background: 340 30% 97%;
+    --foreground: 340 35% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 340 35% 10%;
+    --primary: 346 77% 52%;
+    --muted: 340 20% 93%;
+    --muted-foreground: 340 15% 47%;
+    --border: 340 20% 86%;
+    --input: 340 20% 86%;
+    --received: 340 20% 91%;
+    --sidebar-background: 340 25% 93%;
+    --sidebar-foreground: 340 35% 12%;
+    --sidebar-accent: 340 18% 87%;
+    --sidebar-border: 340 18% 85%;
   }
 }
 

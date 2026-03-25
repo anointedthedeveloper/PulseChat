@@ -189,7 +189,21 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
             {/* Video */}
             {isVideo && message.fileUrl && (
               <div className="mb-1" onClick={(e) => e.stopPropagation()}>
-                <video src={message.fileUrl} controls className="rounded-lg max-h-60 w-full" style={{ maxWidth: 280 }} />
+                <video
+                  src={message.fileUrl}
+                  controls
+                  preload="metadata"
+                  className="rounded-lg max-h-60 w-full"
+                  style={{ maxWidth: 280 }}
+                />
+                <a
+                  href={message.fileUrl}
+                  download
+                  onClick={(e) => e.stopPropagation()}
+                  className={`mt-1 flex items-center gap-1.5 text-[11px] ${isMine ? "text-primary-foreground/60" : "text-muted-foreground"} hover:opacity-80`}
+                >
+                  <Download className="h-3 w-3" />Download video
+                </a>
               </div>
             )}
 
