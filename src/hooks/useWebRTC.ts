@@ -418,7 +418,6 @@ export function useWebRTC() {
 
       const allPCs = [peerConnection.current, ...Array.from(peerConnections.current.values())].filter(Boolean) as RTCPeerConnection[];
       for (const pc of allPCs) {
-        // Add video track (audio track already exists)
         const videoTrack = newStream.getVideoTracks()[0];
         const audioTrack = newStream.getAudioTracks()[0];
         const videoSender = pc.getSenders().find((s) => s.track?.kind === "video");
@@ -431,18 +430,20 @@ export function useWebRTC() {
         if (audioSender && audioTrack) {
           await audioSender.replaceTrack(audioTrack).catch(() => {});
         }
-        // Renegotiate so remote peer receives the new video track
-        const rid = remoteUserIdRef.current;
-        if (rid && pc.signalingState === "stable") {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          await sendSignal({ type: "offer", to: rid, data: pc.localDescription, callType: "video" });
+        // Only the initiator renegotiates to avoid offer glare
+        if (notify && pc.signalingState === "stable") {
+          const rid = remoteUserIdRef.current;
+          if (rid) {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await sendSignal({ type: "offer", to: rid, data: pc.localDescription, callType: "video" });
+          }
         }
       }
-      // Notify remote to also upgrade — only if we initiated
+      // Notify remote to upgrade their camera too
       if (notify) {
         const rid = remoteUserIdRef.current;
-        if (rid) sendSignal({ type: "upgrade-video", to: rid });
+        if (rid) await sendSignal({ type: "upgrade-video", to: rid });
       }
     } catch (err) {
       console.error("[WebRTC] upgradeToVideo failed:", err);
@@ -599,7 +600,7 @@ export function useWebRTC() {
               break;
 
             case "upgrade-video":
-              // Remote peer requested video upgrade — upgrade silently without notifying back
+              // Remote initiated upgrade — get our camera, wait for their renegotiation offer
               upgradeToVideo(false);
               break;
           }
