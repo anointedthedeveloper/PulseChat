@@ -10,9 +10,9 @@ const LANG_COLORS: Record<string, string> = {
   CSS: "#563d7c", HTML: "#e34c26", Shell: "#89e051",
 };
 
-interface Props { onClose: () => void; }
+interface Props { onClose: () => void; onOpenFiles?: (owner: string, repo: string, branch: string) => void; }
 
-const GithubPanel = ({ onClose }: Props) => {
+const GithubPanel = ({ onClose, onOpenFiles }: Props) => {
   const { token, githubUser, repos, loading, error, fetchRepos, fetchCommits, fetchIssues, connectWithToken, disconnect } = useGithub();
   const [pat, setPat] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -122,7 +122,17 @@ const GithubPanel = ({ onClose }: Props) => {
                     <span className="flex items-center gap-1"><GitFork className="h-3 w-3" />{repo.forks_count}</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {onOpenFiles && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); const [owner, name] = repo.full_name.split("/"); onOpenFiles(owner, name, repo.default_branch); }}
+                      className="text-[10px] text-primary hover:underline px-1.5 py-0.5 rounded hover:bg-primary/10 transition-colors"
+                    >
+                      Browse files
+                    </button>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
               </button>
             );
           })}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Hash, ArrowLeft, Send, Smile, X, Users, UserPlus, MessageSquare, Github } from "lucide-react";
+import { Hash, ArrowLeft, Send, Smile, X, Users, UserPlus, MessageSquare, Github, LayoutDashboard, FolderOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +8,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import WorkspaceSidebar from "@/components/workspace/WorkspaceSidebar";
 import TasksPanel from "@/components/workspace/TasksPanel";
 import GithubPanel from "@/components/github/GithubPanel";
+import RepoFileBrowser from "@/components/github/RepoFileBrowser";
 import MessageBubble from "@/components/chat/MessageBubble";
 import EmojiPicker from "@/components/chat/EmojiPicker";
 import type { Channel } from "@/hooks/useWorkspace";
@@ -40,6 +41,8 @@ const WorkspacePage = () => {
   const [showEmoji, setShowEmoji] = useState(false);
   const [showTasks, setShowTasks] = useState(false);
   const [showGithub, setShowGithub] = useState(false);
+  const [showFileBrowser, setShowFileBrowser] = useState(false);
+  const [fileBrowserRepo, setFileBrowserRepo] = useState<{ owner: string; repo: string; branch: string } | null>(null);
   const [showCreateWs, setShowCreateWs] = useState(false);
   const [showJoinWs, setShowJoinWs] = useState(false);
   const [showCreateCh, setShowCreateCh] = useState(false);
@@ -190,6 +193,10 @@ const WorkspacePage = () => {
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted">
               <UserPlus className="h-3.5 w-3.5" /> Add people
             </button>
+            <button onClick={() => navigate("/dashboard")} title="Dashboard"
+              className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+              <LayoutDashboard className="h-4 w-4" />
+            </button>
             <button onClick={() => setShowGithub(v => !v)}
               title="GitHub"
               className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${
@@ -300,7 +307,28 @@ const WorkspacePage = () => {
           <AnimatePresence>
             {showGithub && (
               <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 320, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
-                <GithubPanel onClose={() => setShowGithub(false)} />
+                <GithubPanel
+                  onClose={() => setShowGithub(false)}
+                  onOpenFiles={(owner, repo, branch) => {
+                    setFileBrowserRepo({ owner, repo, branch });
+                    setShowFileBrowser(true);
+                    setShowGithub(false);
+                  }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Repo file browser */}
+          <AnimatePresence>
+            {showFileBrowser && fileBrowserRepo && (
+              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 600, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
+                <RepoFileBrowser
+                  owner={fileBrowserRepo.owner}
+                  repo={fileBrowserRepo.repo}
+                  defaultBranch={fileBrowserRepo.branch}
+                  onClose={() => { setShowFileBrowser(false); setFileBrowserRepo(null); }}
+                />
               </motion.div>
             )}
           </AnimatePresence>

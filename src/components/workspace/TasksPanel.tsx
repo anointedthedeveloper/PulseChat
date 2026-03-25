@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Plus, CheckSquare, Circle, Clock, CheckCircle2, Trash2 } from "lucide-react";
+import { X, Plus, CheckSquare, Circle, Clock, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Task, WorkspaceMember } from "@/hooks/useWorkspace";
 import { useAuth } from "@/context/AuthContext";
@@ -14,15 +14,16 @@ interface Props {
 }
 
 const STATUS_CONFIG = {
-  open:        { label: "Open",        icon: Circle,       color: "text-muted-foreground" },
-  in_progress: { label: "In Progress", icon: Clock,        color: "text-yellow-500" },
-  done:        { label: "Done",        icon: CheckCircle2, color: "text-green-500" },
+  open:        { label: "Open",        icon: Circle,       color: "text-muted-foreground",  bg: "bg-muted text-muted-foreground" },
+  in_progress: { label: "In Progress", icon: Clock,        color: "text-yellow-500",         bg: "bg-yellow-500/10 text-yellow-500" },
+  done:        { label: "Done",        icon: CheckCircle2, color: "text-green-500",          bg: "bg-green-500/10 text-green-500" },
 };
 
 const TasksPanel = ({ tasks, members, onUpdateStatus, onCreateTask, onClose }: Props) => {
   const { user } = useAuth();
   const [newTitle, setNewTitle] = useState("");
   const [filter, setFilter] = useState<"all" | Task["status"]>("all");
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   const filtered = filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
 
@@ -49,7 +50,7 @@ const TasksPanel = ({ tasks, members, onUpdateStatus, onCreateTask, onClose }: P
       <div className="flex border-b border-border shrink-0">
         {(["all", "open", "in_progress", "done"] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`flex-1 text-[11px] py-2 font-medium transition-colors capitalize ${
+            className={`flex-1 text-[11px] py-2 font-medium transition-colors ${
               filter === f ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
             }`}>
             {f === "in_progress" ? "In Progress" : f.charAt(0).toUpperCase() + f.slice(1)}
@@ -79,18 +80,41 @@ const TasksPanel = ({ tasks, members, onUpdateStatus, onCreateTask, onClose }: P
             const cfg = STATUS_CONFIG[task.status];
             const Icon = cfg.icon;
             const assignee = members.find((m) => m.user_id === task.assigned_to);
-            const isOwn = task.created_by === user?.id;
             return (
               <motion.div key={task.id}
                 initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
                 className="bg-card border border-border rounded-xl p-3 space-y-2">
                 <div className="flex items-start gap-2">
-                  <button onClick={() => {
-                    const next: Record<Task["status"], Task["status"]> = { open: "in_progress", in_progress: "done", done: "open" };
-                    onUpdateStatus(task.id, next[task.status]);
-                  }} className={`mt-0.5 shrink-0 ${cfg.color} hover:opacity-70 transition-opacity`}>
-                    <Icon className="h-4 w-4" />
-                  </button>
+                  {/* Status icon — click to open dropdown */}
+                  <div className="relative shrink-0 mt-0.5">
+                    <button
+                      onClick={() => setOpenDropdown(openDropdown === task.id ? null : task.id)}
+                      className={`${cfg.color} hover:opacity-70 transition-opacity`}
+                      title="Change status"
+                    >
+                      <Icon className="h-4 w-4" />
+                    </button>
+                    <AnimatePresence>
+                      {openDropdown === task.id && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9, y: 4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }}
+                          className="absolute left-0 top-6 bg-card border border-border rounded-xl shadow-xl z-30 overflow-hidden w-36"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {(Object.entries(STATUS_CONFIG) as [Task["status"], typeof STATUS_CONFIG["open"]][]).map(([status, s]) => (
+                            <button key={status}
+                              onClick={() => { onUpdateStatus(task.id, status); setOpenDropdown(null); }}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted transition-colors text-left ${
+                                task.status === status ? "font-semibold" : ""
+                              }`}>
+                              <s.icon className={`h-3.5 w-3.5 shrink-0 ${s.color}`} />
+                              {s.label}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium ${task.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>
                       {task.title}
@@ -98,18 +122,10 @@ const TasksPanel = ({ tasks, members, onUpdateStatus, onCreateTask, onClose }: P
                     {task.description && <p className="text-xs text-muted-foreground mt-0.5">{task.description}</p>}
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                    task.status === "open" ? "bg-muted text-muted-foreground" :
-                    task.status === "in_progress" ? "bg-yellow-500/10 text-yellow-500" :
-                    "bg-green-500/10 text-green-500"
-                  }`}>{cfg.label}</span>
-                  {assignee && (
-                    <span className="text-[10px] text-muted-foreground">@{assignee.profiles.username}</span>
-                  )}
-                  {task.message_id && (
-                    <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">from message</span>
-                  )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${cfg.bg}`}>{cfg.label}</span>
+                  {assignee && <span className="text-[10px] text-muted-foreground">@{assignee.profiles.username}</span>}
+                  {task.message_id && <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">from message</span>}
                 </div>
               </motion.div>
             );
