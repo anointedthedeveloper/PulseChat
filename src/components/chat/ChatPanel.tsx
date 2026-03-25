@@ -410,7 +410,8 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
       )}
 
       {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-border/70 bg-card/90 backdrop-blur-xl shrink-0">
+      <div className="px-4 py-3 border-b border-border/70 bg-card/90 backdrop-blur-xl shrink-0">
+        <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
             onClick={onToggleSidebar} className="lg:hidden h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground shrink-0">
@@ -432,7 +433,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
             </div>
           </button>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
           {messages.length > 0 && (
             <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{messages.length}</span>
           )}
@@ -476,6 +477,53 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
             </>
           )}
         </div>
+        </div>
+
+        {!isSecondPanel && (
+          <div className="mt-3 flex items-center gap-2 overflow-x-auto sm:hidden">
+            <button
+              onClick={() => onStartCall("audio")}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Audio
+            </button>
+            <button
+              onClick={() => onStartCall("video")}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Video className="h-3.5 w-3.5" />
+              Video
+            </button>
+            <button
+              onClick={() => { setSearchOpen(o => !o); setSearchQuery(""); }}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] transition-colors ${
+                searchOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Search className="h-3.5 w-3.5" />
+              Search
+            </button>
+            <button
+              onClick={onToggleProfile}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] transition-colors ${
+                profileOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Info className="h-3.5 w-3.5" />
+              Info
+            </button>
+            {onCloseChat && (
+              <button
+                onClick={onCloseChat}
+                className="flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+                Close
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Search bar */}
