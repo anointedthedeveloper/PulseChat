@@ -10,6 +10,13 @@ import { useGithub } from "@/hooks/useGithub";
 
 type Section = "profile" | "appearance" | "notifications" | "privacy" | "workspace" | "github";
 
+interface ProfileWithBio {
+  display_name: string | null;
+  username: string;
+  avatar_url: string | null;
+  bio?: string | null;
+}
+
 const RINGTONES = [
   { id: "default", label: "Default", freqs: [[880, 0, 0.15], [1100, 0.2, 0.15], [880, 0.4, 0.15]] },
   { id: "classic", label: "Classic", freqs: [[660, 0, 0.2], [660, 0.3, 0.2], [660, 0.6, 0.2]] },
@@ -26,7 +33,9 @@ function playPreview(freqs: readonly (readonly number[])[]) {
       osc.connect(gain); osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + dur);
     });
     setTimeout(() => ctx.close(), 1500);
-  } catch {}
+  } catch {
+    return;
+  }
 }
 
 const SettingsPage = () => {
@@ -51,9 +60,10 @@ const SettingsPage = () => {
 
   useEffect(() => {
     if (profile) {
+      const profileData = profile as ProfileWithBio;
       setDisplayName(profile.display_name || "");
       setUsername(profile.username || "");
-      setBio((profile as any).bio || "");
+      setBio(profileData.bio || "");
       setAvatarUrl(profile.avatar_url || "");
     }
   }, [profile]);
@@ -96,7 +106,7 @@ const SettingsPage = () => {
     const cleanUrl = avatarUrl.split("?t=")[0] || null;
     const { error } = await supabase
       .from("profiles")
-      .update({ display_name: displayName.trim() || null, username: username.trim(), avatar_url: cleanUrl, bio: bio.trim() || null } as any)
+      .update({ display_name: displayName.trim() || null, username: username.trim(), avatar_url: cleanUrl, bio: bio.trim() || null } as never)
       .eq("id", user.id);
     if (error) {
       setMessage(error.message.includes("unique") ? "Username already taken" : error.message);

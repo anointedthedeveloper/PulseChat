@@ -69,9 +69,15 @@ interface EditState {
   text: string;
 }
 
+interface ChatRoomWithMeta extends EnrichedChatRoom {
+  pinned_message_text?: string | null;
+  icon_url?: string | null;
+}
+
 const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessage, onDeleteMessage, onReact, onPin, onUnpin, onForward, onClearChat, onAcceptRequest, onDeclineRequest, onStartCall, onTyping, isOtherTyping, typingUsers = [], onToggleSidebar, onToggleProfile, onCloseChat, profileOpen, isSecondPanel, onToggleSecondProfile, allChats = [] }: ChatPanelProps) => {
   const { user } = useAuth();
   const { wallpaper } = useThemeContext();
+  const chatMeta = chat as ChatRoomWithMeta;
 
   const [input, setInput] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
@@ -137,7 +143,8 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
   const toggleSelectMsg = useCallback((id: string) => {
     setSelectedMsgs((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
@@ -314,7 +321,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
     : messages;
 
   // Pinned message text from chat room
-  const pinnedText = (chat as any).pinned_message_text as string | undefined;
+  const pinnedText = chatMeta.pinned_message_text || undefined;
 
   return (
     <div
@@ -361,7 +368,12 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
               <div className="max-h-48 overflow-y-auto space-y-1 mb-3">
                 {allChats.filter((c) => c.id !== chat.id).map((c) => (
                   <button key={c.id}
-                    onClick={() => setForwardTargets((prev) => { const n = new Set(prev); n.has(c.id) ? n.delete(c.id) : n.add(c.id); return n; })}
+                    onClick={() => setForwardTargets((prev) => {
+                      const n = new Set(prev);
+                      if (n.has(c.id)) n.delete(c.id);
+                      else n.add(c.id);
+                      return n;
+                    })}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-left transition-colors ${
                       forwardTargets.has(c.id) ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"
                     }`}>
@@ -407,7 +419,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
             <AvatarBubble
               letter={chat.displayAvatar}
               status={chat.is_group ? undefined : (chat.otherMemberStatus as "online" | "offline" | undefined)}
-              imageUrl={chat.is_group ? ((chat as any).icon_url ?? null) : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
+              imageUrl={chat.is_group ? (chatMeta.icon_url ?? null) : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
             />
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground truncate">{chat.displayName}</h2>
