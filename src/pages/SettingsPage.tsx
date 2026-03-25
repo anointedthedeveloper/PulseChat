@@ -6,8 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useThemeContext } from "@/context/ThemeContext";
 import ImageCropper from "@/components/chat/ImageCropper";
+import { useGithub } from "@/hooks/useGithub";
 
-type Section = "profile" | "appearance" | "notifications" | "privacy";
+type Section = "profile" | "appearance" | "notifications" | "privacy" | "workspace" | "github";
 
 const RINGTONES = [
   { id: "default", label: "Default", freqs: [[880, 0, 0.15], [1100, 0.2, 0.15], [880, 0.4, 0.15]] },
@@ -32,6 +33,7 @@ const SettingsPage = () => {
   const navigate = useNavigate();
   const { user, profile, refreshProfile, signOut } = useAuth();
   const { mode, theme, wallpaper, setMode, setTheme, setWallpaper } = useThemeContext();
+  const { githubUser, token, disconnect } = useGithub();
   const fileRef = useRef<HTMLInputElement>(null);
   const wallpaperRef = useRef<HTMLInputElement>(null);
 
@@ -124,14 +126,16 @@ const SettingsPage = () => {
     { id: "appearance",   label: "Appearance",   icon: <Palette className="h-4 w-4" /> },
     { id: "notifications",label: "Notifications",icon: <Bell className="h-4 w-4" /> },
     { id: "privacy",      label: "Privacy",      icon: <Shield className="h-4 w-4" /> },
+    { id: "workspace",    label: "Workspace",    icon: <User className="h-4 w-4" /> },
+    { id: "github",       label: "GitHub",       icon: <Palette className="h-4 w-4" /> },
   ];
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
+    <div className="h-screen flex bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.10),_transparent_22%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--background)))] overflow-hidden">
       {cropSrc && <ImageCropper src={cropSrc} onCrop={handleCroppedAvatar} onCancel={() => setCropSrc(null)} />}
 
       {/* Sidebar nav */}
-      <div className="w-56 shrink-0 border-r border-border bg-card flex flex-col">
+      <div className="w-64 shrink-0 border-r border-border bg-card/90 backdrop-blur-xl flex flex-col">
         <div className="px-4 py-4 border-b border-border flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground">
             <ArrowLeft className="h-4 w-4" />
@@ -179,7 +183,12 @@ const SettingsPage = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-lg mx-auto px-6 py-8">
+        <div className="mx-auto max-w-3xl px-6 py-8">
+          <div className="mb-6 rounded-[28px] border border-border/70 bg-card/80 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Settings</p>
+            <h1 className="mt-2 text-2xl font-semibold text-foreground">Control your chat, workspace, and developer environment</h1>
+            <p className="mt-2 text-sm text-muted-foreground">This is your personal control center for identity, appearance, notifications, privacy, and the connected tools around your workspace.</p>
+          </div>
           <AnimatePresence mode="wait">
             <motion.div key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
 
@@ -353,6 +362,44 @@ const SettingsPage = () => {
                         <div className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${ghostMode ? "translate-x-5" : "translate-x-0"}`} />
                       </div>
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {section === "workspace" && (
+                <div className="space-y-6">
+                  <h2 className="text-lg font-semibold text-foreground">Workspace</h2>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <button onClick={() => navigate("/workspace")} className="rounded-2xl border border-border bg-card/80 p-5 text-left hover:border-primary/40 transition-colors">
+                      <p className="text-sm font-semibold text-foreground">Open Workspace</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Jump into channels, projects, linked repos, and your IDE-style workspace.</p>
+                    </button>
+                    <button onClick={() => navigate("/dashboard")} className="rounded-2xl border border-border bg-card/80 p-5 text-left hover:border-primary/40 transition-colors">
+                      <p className="text-sm font-semibold text-foreground">Open Dashboard</p>
+                      <p className="mt-1 text-xs text-muted-foreground">See delivery progress, workspace activity, tasks, and GitHub momentum.</p>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {section === "github" && (
+                <div className="space-y-6">
+                  <h2 className="text-lg font-semibold text-foreground">GitHub</h2>
+                  <div className="rounded-2xl border border-border bg-card/80 p-5">
+                    <p className="text-sm font-semibold text-foreground">{githubUser ? `Connected as @${githubUser}` : "Not connected"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {token ? "GitHub repo browsing, issue creation, and file editing are enabled in the workspace." : "Connect GitHub from the workspace panel to enable repo linking, issue creation, and file editing."}
+                    </p>
+                    <div className="mt-4 flex gap-2">
+                      <button onClick={() => navigate("/workspace")} className="rounded-xl gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                        Open GitHub Panel
+                      </button>
+                      {token && (
+                        <button onClick={disconnect} className="rounded-xl border border-destructive/40 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10">
+                          Disconnect
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

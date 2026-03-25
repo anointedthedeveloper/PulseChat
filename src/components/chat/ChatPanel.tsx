@@ -318,7 +318,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
 
   return (
     <div
-      className={`h-full flex flex-col bg-background min-w-0 ${wallpaper ? "chat-wallpaper" : ""}`}
+      className={`h-full flex flex-col min-w-0 overflow-hidden rounded-[28px] border border-border/70 bg-card/85 shadow-[0_18px_50px_rgba(15,23,42,0.08)] ${wallpaper ? "chat-wallpaper" : ""}`}
       style={wallpaper ? { backgroundImage: `url(${wallpaper})` } : undefined}
     >
       {cropSrc && (
@@ -397,7 +397,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
       )}
 
       {/* Header */}
-      <div className="px-3 py-3 flex items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm shrink-0">
+      <div className="px-4 py-3 flex items-center justify-between border-b border-border/70 bg-card/90 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
             onClick={onToggleSidebar} className="lg:hidden h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground shrink-0">
@@ -515,7 +515,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-3">
+      <div className="flex-1 overflow-y-auto py-3 bg-[linear-gradient(180deg,rgba(255,255,255,0.015),transparent)]">
         <AnimatePresence initial={false}>
           {filteredMessages.map((msg, i) => {
             const prev = filteredMessages[i - 1];
@@ -608,7 +608,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
       )}
 
       {/* Input */}
-      <div className="px-3 py-3 border-t border-border relative shrink-0">
+      <div className="px-4 py-3 border-t border-border/70 bg-background/85 backdrop-blur-xl relative shrink-0">
         {chat.isPending && !chat.isRequester ? (
           <div className="flex items-center justify-center py-2">
             <p className="text-xs text-muted-foreground">Accept the request to reply</p>
@@ -637,7 +637,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-end gap-2">
                 <button onClick={() => setShowEmoji(!showEmoji)} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0">
                   <Smile className="h-5 w-5" />
                 </button>
@@ -648,14 +648,16 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
                   accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip"
                   onChange={handleFileSelect}
                 />
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => { setInput(e.target.value); onTyping?.(); }}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type a message..."
-                  className="flex-1 bg-muted text-sm text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-2.5 outline-none focus:ring-1 focus:ring-primary transition-all"
-                />
+                <div className="flex-1 rounded-[22px] border border-border/70 bg-muted/60 px-3 py-2 shadow-inner">
+                  <input
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => { setInput(e.target.value); onTyping?.(e.target.value.length); }}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type a message..."
+                    className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                  />
+                </div>
                 {hasInput && (
                   <div className="relative">
                     <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}

@@ -7,7 +7,7 @@ interface EmptyChatPanelProps {
 
 const EmptyChatPanel = ({ onToggleSidebar }: EmptyChatPanelProps) => {
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col rounded-[28px] border border-border/70 bg-card/85 shadow-[0_18px_50px_rgba(15,23,42,0.08)] overflow-hidden">
       {/* Mobile header */}
       <div className="lg:hidden px-4 py-3 border-b border-border flex items-center">
         <button
@@ -19,7 +19,7 @@ const EmptyChatPanel = ({ onToggleSidebar }: EmptyChatPanelProps) => {
         <span className="ml-3 text-sm font-semibold text-foreground">ChatFlow</span>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_28%)]">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -30,8 +30,8 @@ const EmptyChatPanel = ({ onToggleSidebar }: EmptyChatPanelProps) => {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-foreground">ChatFlow</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Select a conversation to start messaging
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+              Select a conversation to start messaging, open split view, or jump into your workspace without leaving the app shell.
             </p>
           </div>
           <div className="flex items-center gap-2 mt-2">

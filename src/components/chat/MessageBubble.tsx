@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, CheckCheck, FileText, Download, Play, Pause, Phone, Video, Reply, X, Pencil, Trash2, Copy, Pin, SmilePlus, Forward, Loader2, AlertCircle, RotateCcw, Github } from "lucide-react";
+import { Ban, Check, CheckCheck, FileText, Download, Play, Pause, Phone, Video, Reply, X, Pencil, Trash2, Copy, Pin, SmilePlus, Forward, Loader2, AlertCircle, RotateCcw, Github } from "lucide-react";
 import { Highlight, themes } from "prism-react-renderer";
 import type { Language } from "prism-react-renderer";
 import GithubRepoCard from "@/components/github/GithubRepoCard";
@@ -314,7 +314,12 @@ const MessageBubble = ({ message, isMine, selected, onSelect, onReply, onEdit, o
             )}
 
             {/* Deleted */}
-            {isDeleted && <p className="text-sm italic opacity-60">{message.text}</p>}
+            {isDeleted && (
+              <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isMine ? "border-white/15 bg-white/10" : "border-border/70 bg-muted/60"}`}>
+                <Ban className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                <p className="text-sm italic opacity-70">{message.text}</p>
+              </div>
+            )}
 
             {/* Call indicator */}
             {isCall && (

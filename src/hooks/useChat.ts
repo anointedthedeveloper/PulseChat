@@ -605,7 +605,10 @@ export function useChat() {
 
   const deleteMessage = useCallback(
     async (messageId: string) => {
-      await supabase.from("messages").update({ content: "🚫 This message was deleted", file_url: null, file_type: "deleted" } as any).eq("id", messageId);
+      await supabase
+        .from("messages")
+        .update({ content: "This message was deleted", file_url: null, file_type: "deleted", file_name: null } as any)
+        .eq("id", messageId);
     },
     []
   );

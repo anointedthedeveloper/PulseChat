@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, MessageSquarePlus, Users, Settings, X, LogOut, Phone, Video, Mic, CheckCheck, Columns2, UserCheck, LayoutGrid, LayoutDashboard } from "lucide-react";
+import { Search, MessageSquarePlus, Users, Settings, X, LogOut, Phone, Video, Mic, CheckCheck, Columns2, UserCheck, LayoutGrid, LayoutDashboard, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,8 @@ interface ChatSidebarProps {
   onCreateGroup: (name: string, memberIds: string[]) => void;
   onOpenSecondChat?: (id: string) => void;
   secondChatId?: string | null;
+  sidebarCollapsed?: boolean;
+  onToggleSidebarCollapsed?: () => void;
 }
 
 interface UserProfile {
@@ -37,7 +39,7 @@ const formatTimestamp = (dateStr?: string) => {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
-const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGroup, onOpenSecondChat, secondChatId }: ChatSidebarProps) => {
+const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGroup, onOpenSecondChat, secondChatId, sidebarCollapsed = false, onToggleSidebarCollapsed }: ChatSidebarProps) => {
   const [search, setSearch] = useState("");
   const [showNewChat, setShowNewChat] = useState(false);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
@@ -108,12 +110,12 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
   );
 
   return (
-    <div className="h-full flex flex-col bg-sidebar border-r border-sidebar-border">
+    <div className="h-full flex flex-col bg-sidebar/95 border-r border-sidebar-border backdrop-blur-xl">
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-sidebar-border">
         <button
           onClick={() => navigate("/settings")}
-          className="flex items-center gap-2.5 hover:opacity-90 transition-all hover-scale rounded-lg px-1 py-0.5"
+          className="flex items-center gap-2.5 hover:opacity-90 transition-all hover-scale rounded-lg px-1 py-0.5 min-w-0"
         >
           <AvatarBubble
             letter={profile?.username?.[0]?.toUpperCase() || "A"}
@@ -121,7 +123,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
             size="sm"
             imageUrl={profile?.avatar_url}
           />
-          <div className="text-left">
+          <div className={`text-left min-w-0 ${sidebarCollapsed ? "hidden" : ""}`}>
             <p className="text-sm font-semibold text-sidebar-foreground leading-tight">
               {profile?.display_name || profile?.username || "You"}
             </p>
@@ -129,6 +131,15 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
           </div>
         </button>
         <div className="flex items-center gap-1">
+          {onToggleSidebarCollapsed && (
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={onToggleSidebarCollapsed}
+              className="hidden lg:flex h-8 w-8 rounded-lg items-center justify-center hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-sidebar-foreground"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </motion.button>
+          )}
           <ThemeToggle />
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
             onClick={() => navigate("/dashboard")}
@@ -160,7 +171,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
       </div>
 
       {/* New Chat Panel */}
-      <AnimatePresence>
+      {!sidebarCollapsed && <AnimatePresence>
         {showNewChat && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -267,10 +278,10 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
           </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>}
 
       {/* Search bar with user results dropdown */}
-      <div className="px-3 py-2" ref={searchRef}>
+      {!sidebarCollapsed && <div className="px-3 py-2" ref={searchRef}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -312,10 +323,10 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
         {searching && search && (
           <p className="text-xs text-muted-foreground text-center py-2">Searching...</p>
         )}
-      </div>
+      </div>}
 
       {/* Tabs */}
-      <div className="flex border-b border-sidebar-border shrink-0">
+      {!sidebarCollapsed && <div className="flex border-b border-sidebar-border shrink-0">
         <button
           onClick={() => setActiveTab("chats")}
           className={`flex-1 text-xs py-2 font-medium transition-colors ${
@@ -350,7 +361,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
             </span>
           )}
         </button>
-      </div>
+      </div>}
 
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto">
@@ -382,7 +393,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
                 status={chat.is_group ? undefined : (chat.otherMemberStatus as "online" | "offline" | undefined)}
                 imageUrl={chat.is_group ? ((chat as any).icon_url ?? null) : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
               />
-              <div className="flex-1 min-w-0 text-left">
+              <div className={`flex-1 min-w-0 text-left ${sidebarCollapsed ? "hidden" : ""}`}>
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-sm font-medium text-sidebar-foreground truncate flex items-center gap-1.5">
                     {chat.is_group && <Users className="h-3 w-3 text-muted-foreground shrink-0" />}
@@ -414,7 +425,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
                 </div>
               </div>
             </div>
-            {onOpenSecondChat && (
+            {!sidebarCollapsed && onOpenSecondChat && (
               <motion.button
                 whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                 onClick={(e) => { e.stopPropagation(); onOpenSecondChat(chat.id); }}
@@ -436,7 +447,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
       {/* Footer */}
       <div className="px-4 py-2.5 border-t border-sidebar-border flex items-center justify-between">
         <span className="text-[11px] text-muted-foreground truncate">
-          {profile?.display_name || profile?.username}
+          {sidebarCollapsed ? "@me" : (profile?.display_name || profile?.username)}
         </span>
         <button
           onClick={signOut}

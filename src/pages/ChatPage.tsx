@@ -14,6 +14,7 @@ import { toast } from "sonner";
 const ChatPage = () => {
   const { user, profile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [secondChatId, setSecondChatId] = useState<string | null>(null);
   const [secondMessages, setSecondMessages] = useState<any[]>([]);
@@ -119,7 +120,7 @@ const ChatPage = () => {
   const secondChat = chatRooms.find((c) => c.id === secondChatId) || null;
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background">
+    <div className="h-screen flex overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.10),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(59,130,246,0.08),_transparent_22%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--background)))]">
 
       {/* Mobile sidebar backdrop */}
       <AnimatePresence>
@@ -136,6 +137,7 @@ const ChatPage = () => {
       <div className={`
         fixed lg:relative inset-y-0 left-0 z-30 w-80 shrink-0 transition-transform duration-300 ease-in-out
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        ${sidebarCollapsed ? "lg:w-24" : "lg:w-80"}
       `}>
         <ChatSidebar
           chats={chatRooms}
@@ -145,14 +147,16 @@ const ChatPage = () => {
           onCreateGroup={handleCreateGroup}
           onOpenSecondChat={handleOpenSecondChat}
           secondChatId={secondChatId}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebarCollapsed={() => setSidebarCollapsed((value) => !value)}
         />
       </div>
 
       {/* Main chat area */}
-      <div className="flex-1 flex overflow-hidden min-w-0">
+      <div className="flex-1 flex overflow-hidden min-w-0 p-2 lg:p-3 gap-3">
         {/* Primary chat — full width on mobile/tablet, half on desktop when split */}
         <div className={`flex flex-col overflow-hidden transition-all duration-300 ${
-          secondChat ? "hidden lg:flex lg:w-1/2 lg:border-r lg:border-border" : "flex-1"
+          secondChat ? "hidden lg:flex lg:w-1/2" : "flex-1"
         }`}>
           {activeChat ? (
             <ChatPanel
