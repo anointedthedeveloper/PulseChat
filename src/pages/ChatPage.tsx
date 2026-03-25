@@ -21,6 +21,8 @@ const ChatPage = () => {
   const {
     chatRooms, activeChat, activeChatId, setActiveChatId,
     messages, sendMessage, createDirectMessage, createGroupChat,
+    removeMember, leaveGroup, promoteToAdmin, demoteAdmin,
+    editMessage, deleteMessage, sendSystemMessage,
     isOtherTyping, sendTyping, fetchChatRooms,
   } = useChat();
 
@@ -144,6 +146,8 @@ const ChatPage = () => {
               messages={messages}
               onSendMessage={(text, fileUrl, fileType, fileName, replyToId, replyToText, replyToSender) =>
                 sendMessage(text, fileUrl, fileType, fileName, replyToId, replyToText, replyToSender)}
+              onEditMessage={editMessage}
+              onDeleteMessage={deleteMessage}
               onStartCall={handleStartCall}
               onTyping={sendTyping}
               isOtherTyping={isOtherTyping}
@@ -189,6 +193,11 @@ const ChatPage = () => {
             onClose={() => setProfileOpen(false)}
             onStartCall={handleStartCall}
             onRefresh={fetchChatRooms}
+            onRemoveMember={removeMember}
+            onLeaveGroup={leaveGroup}
+            onPromoteToAdmin={promoteToAdmin}
+            onDemoteAdmin={demoteAdmin}
+            onSendSystemMessage={sendSystemMessage}
           />
         )}
 
@@ -200,6 +209,11 @@ const ChatPage = () => {
             onClose={() => setSecondProfileOpen(false)}
             onStartCall={() => {}}
             onRefresh={fetchChatRooms}
+            onRemoveMember={removeMember}
+            onLeaveGroup={leaveGroup}
+            onPromoteToAdmin={promoteToAdmin}
+            onDemoteAdmin={demoteAdmin}
+            onSendSystemMessage={sendSystemMessage}
           />
         )}
       </div>

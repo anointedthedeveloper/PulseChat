@@ -276,19 +276,79 @@ export function useChat() {
 
       if (!newRoom) return null;
 
-      // Creator gets admin role — silently skip role if column doesn't exist
       const baseMembers = [
-        { chat_room_id: newRoom.id, user_id: user.id },
-        ...memberIds.map((id) => ({ chat_room_id: newRoom.id, user_id: id })),
+        { chat_room_id: newRoom.id, user_id: user.id, role: "owner" },
+        ...memberIds.map((id) => ({ chat_room_id: newRoom.id, user_id: id, role: "member" })),
       ];
-      await supabase.from("chat_members").insert(baseMembers);
-      // Try to set admin role — ignore error if column missing
-      supabase.from("chat_members").update({ role: "admin" } as any)
-        .eq("chat_room_id", newRoom.id).eq("user_id", user.id).then(() => {}).catch(() => {});
+      await supabase.from("chat_members").insert(baseMembers as any);
       await fetchChatRooms();
       return newRoom.id;
     },
     [user, fetchChatRooms]
+  );
+
+  const sendSystemMessage = useCallback(
+    async (chatRoomId: string, text: string) => {
+      if (!user) return;
+      await supabase.from("messages").insert({
+        chat_room_id: chatRoomId,
+        sender_id: user.id,
+        content: text,
+        file_type: "system",
+      } as any);
+    },
+    [user]
+  );
+
+  const removeMember = useCallback(
+    async (chatRoomId: string, userId: string, displayName: string) => {
+      await supabase.from("chat_members").delete().eq("chat_room_id", chatRoomId).eq("user_id", userId);
+      await sendSystemMessage(chatRoomId, `${displayName} was removed from the group`);
+      await fetchChatRooms();
+    },
+    [sendSystemMessage, fetchChatRooms]
+  );
+
+  const leaveGroup = useCallback(
+    async (chatRoomId: string, displayName: string) => {
+      if (!user) return;
+      await supabase.from("chat_members").delete().eq("chat_room_id", chatRoomId).eq("user_id", user.id);
+      await sendSystemMessage(chatRoomId, `${displayName} left the group`);
+      await fetchChatRooms();
+    },
+    [user, sendSystemMessage, fetchChatRooms]
+  );
+
+  const promoteToAdmin = useCallback(
+    async (chatRoomId: string, userId: string, displayName: string) => {
+      await supabase.from("chat_members").update({ role: "admin" } as any).eq("chat_room_id", chatRoomId).eq("user_id", userId);
+      await sendSystemMessage(chatRoomId, `${displayName} was made an admin`);
+      await fetchChatRooms();
+    },
+    [sendSystemMessage, fetchChatRooms]
+  );
+
+  const demoteAdmin = useCallback(
+    async (chatRoomId: string, userId: string, displayName: string) => {
+      await supabase.from("chat_members").update({ role: "member" } as any).eq("chat_room_id", chatRoomId).eq("user_id", userId);
+      await sendSystemMessage(chatRoomId, `${displayName} is no longer an admin`);
+      await fetchChatRooms();
+    },
+    [sendSystemMessage, fetchChatRooms]
+  );
+
+  const editMessage = useCallback(
+    async (messageId: string, newText: string) => {
+      await supabase.from("messages").update({ content: newText } as any).eq("id", messageId);
+    },
+    []
+  );
+
+  const deleteMessage = useCallback(
+    async (messageId: string) => {
+      await supabase.from("messages").update({ content: "🚫 This message was deleted", file_url: null, file_type: "deleted" } as any).eq("id", messageId);
+    },
+    []
   );
 
   // Real-time subscriptions
@@ -420,7 +480,7 @@ export function useChat() {
         { event: "UPDATE", schema: "public", table: "messages" },
         (payload) => {
           const updated = payload.new as Message;
-          setMessages((prev) => prev.map((m) => m.id === updated.id ? { ...m, is_read: updated.is_read, is_delivered: (updated as any).is_delivered } : m));
+          setMessages((prev) => prev.map((m) => m.id === updated.id ? { ...m, ...updated } : m));
         }
       )
       .subscribe();
@@ -437,6 +497,13 @@ export function useChat() {
     sendMessage,
     createDirectMessage,
     createGroupChat,
+    removeMember,
+    leaveGroup,
+    promoteToAdmin,
+    demoteAdmin,
+    editMessage,
+    deleteMessage,
+    sendSystemMessage,
     loading,
     fetchChatRooms,
     isOtherTyping,

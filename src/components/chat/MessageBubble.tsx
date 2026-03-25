@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, CheckCheck, FileText, Download, Play, Pause, Phone, Video, Reply, X } from "lucide-react";
+import { Check, CheckCheck, FileText, Download, Play, Pause, Phone, Video, Reply, X, Pencil, Trash2 } from "lucide-react";
 
 interface MessageData {
   id: string;
@@ -19,6 +19,8 @@ interface MessageBubbleProps {
   message: MessageData;
   isMine: boolean;
   onReply?: (msg: MessageData) => void;
+  onEdit?: (msg: MessageData) => void;
+  onDelete?: (msgId: string) => void;
   showDate?: boolean;
 }
 
@@ -105,7 +107,7 @@ export const DateSeparator = ({ date }: { date: Date }) => (
   </div>
 );
 
-const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProps) => {
+const MessageBubble = ({ message, isMine, onReply, onEdit, onDelete, showDate }: MessageBubbleProps) => {
   const [lightbox, setLightbox] = useState(false);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapCount = useRef(0);
@@ -114,6 +116,8 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
   const isVideo = message.fileType?.startsWith("video/");
   const isAudio = message.fileType?.startsWith("audio/");
   const isCall = message.fileType === "call/audio" || message.fileType === "call/video";
+  const isSystem = message.fileType === "system";
+  const isDeleted = message.fileType === "deleted";
 
   const handleTap = () => {
     tapCount.current += 1;
@@ -122,9 +126,20 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
     } else if (tapCount.current === 2) {
       if (tapTimer.current) clearTimeout(tapTimer.current);
       tapCount.current = 0;
-      onReply?.(message);
+      if (!isSystem && !isDeleted) onReply?.(message);
     }
   };
+
+  if (isSystem) {
+    return (
+      <>
+        {showDate && <DateSeparator date={message.timestamp} />}
+        <div className="flex justify-center px-4 py-1">
+          <span className="text-[11px] text-muted-foreground bg-muted/60 px-3 py-1 rounded-full">{message.text}</span>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -137,7 +152,7 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.15, ease: [0.34, 1.56, 0.64, 1] }}
         className={`flex ${isMine ? "justify-end" : "justify-start"} px-4 py-0.5 group`}
-        onDoubleClick={() => onReply?.(message)}
+        onDoubleClick={() => !isDeleted && onReply?.(message)}
         onClick={handleTap}
       >
         <div className="flex flex-col max-w-[72%]">
@@ -158,17 +173,40 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
               ? "gradient-primary text-primary-foreground rounded-2xl rounded-br-sm"
               : "bg-received text-foreground rounded-2xl rounded-bl-sm"
           }`}>
-            {/* Hover reply button */}
-            {!isCall && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.7 }}
-                whileHover={{ scale: 1.15 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={(e) => { e.stopPropagation(); onReply?.(message); }}
-                className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 rounded-full bg-card border border-border flex items-center justify-center shadow-sm ${isMine ? "-left-9" : "-right-9"}`}
-              >
-                <Reply className="h-3.5 w-3.5 text-muted-foreground" />
-              </motion.button>
+            {/* Hover action buttons */}
+            {!isCall && !isDeleted && (
+              <div className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 ${isMine ? "-left-20" : "-right-20"}`}>
+                <motion.button
+                  whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                  onClick={(e) => { e.stopPropagation(); onReply?.(message); }}
+                  className="h-7 w-7 rounded-full bg-card border border-border flex items-center justify-center shadow-sm"
+                >
+                  <Reply className="h-3.5 w-3.5 text-muted-foreground" />
+                </motion.button>
+                {isMine && !isSystem && (
+                  <>
+                    <motion.button
+                      whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                      onClick={(e) => { e.stopPropagation(); onEdit?.(message); }}
+                      className="h-7 w-7 rounded-full bg-card border border-border flex items-center justify-center shadow-sm"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                      onClick={(e) => { e.stopPropagation(); onDelete?.(message.id); }}
+                      className="h-7 w-7 rounded-full bg-card border border-border flex items-center justify-center shadow-sm"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </motion.button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Deleted message */}
+            {isDeleted && (
+              <p className="text-sm italic opacity-60">{message.text}</p>
             )}
 
             {/* Call indicator */}
@@ -183,7 +221,7 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
             )}
 
             {/* Image */}
-            {isImage && message.fileUrl && (
+            {isImage && !isDeleted && message.fileUrl && (
               <img
                 src={message.fileUrl}
                 alt={message.fileName || "Image"}
@@ -193,7 +231,7 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
             )}
 
             {/* Video */}
-            {isVideo && message.fileUrl && (
+            {isVideo && !isDeleted && message.fileUrl && (
               <div className="mb-1" onClick={(e) => e.stopPropagation()}>
                 <div className="relative rounded-lg overflow-hidden bg-black" style={{ maxWidth: 280 }}>
                   <video
@@ -222,14 +260,14 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
             )}
 
             {/* Voice note */}
-            {isAudio && message.fileUrl && (
+            {isAudio && !isDeleted && message.fileUrl && (
               <div className="mb-1" onClick={(e) => e.stopPropagation()}>
                 <VoiceNote url={message.fileUrl} isMine={isMine} />
               </div>
             )}
 
             {/* Document */}
-            {message.fileUrl && !isImage && !isVideo && !isAudio && !isCall && (
+            {message.fileUrl && !isImage && !isVideo && !isAudio && !isCall && !isDeleted && (
               <a
                 href={message.fileUrl} target="_blank" rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
@@ -245,7 +283,7 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
             )}
 
             {/* Text */}
-            {!isCall && message.text && !(message.fileUrl && message.text.startsWith("📎")) && (
+            {!isCall && !isDeleted && message.text && !(message.fileUrl && message.text.startsWith("📎")) && (
               <p className="text-sm leading-relaxed break-words">{message.text}</p>
             )}
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Smile, Paperclip, Phone, Video, ChevronLeft, Info, Mic, X, Reply } from "lucide-react";
+import { Send, Smile, Paperclip, Phone, Video, ChevronLeft, Info, Mic, X, Reply, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useThemeContext } from "@/context/ThemeContext";
@@ -31,6 +31,8 @@ interface ChatPanelProps {
   chat: EnrichedChatRoom;
   messages: Message[];
   onSendMessage: (text: string, fileUrl?: string, fileType?: string, fileName?: string, replyToId?: string, replyToText?: string, replyToSender?: string) => void;
+  onEditMessage?: (messageId: string, newText: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
   onStartCall: (type: "audio" | "video") => void;
   onTyping?: () => void;
   isOtherTyping?: boolean;
@@ -48,13 +50,19 @@ interface ReplyState {
   senderName: string;
 }
 
-const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOtherTyping, onToggleSidebar, onToggleProfile, onCloseChat, profileOpen, isSecondPanel, onToggleSecondProfile }: ChatPanelProps) => {
+interface EditState {
+  id: string;
+  text: string;
+}
+
+const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessage, onStartCall, onTyping, isOtherTyping, onToggleSidebar, onToggleProfile, onCloseChat, profileOpen, isSecondPanel, onToggleSecondProfile }: ChatPanelProps) => {
   const [input, setInput] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyState | null>(null);
+  const [editMsg, setEditMsg] = useState<EditState | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const { wallpaper } = useThemeContext();
@@ -84,7 +92,13 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
   useEffect(() => {
     inputRef.current?.focus();
     setReplyTo(null);
+    setEditMsg(null);
   }, [chat.id]);
+
+  // Populate input when editing
+  useEffect(() => {
+    if (editMsg) { setInput(editMsg.text); inputRef.current?.focus(); }
+  }, [editMsg]);
 
   const uploadFile = useCallback(async (file: File, customType?: string): Promise<{ url: string; type: string; name: string } | null> => {
     const ext = file.name.split(".").pop() || "bin";
@@ -97,6 +111,15 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
 
   const handleSend = async () => {
     if (!input.trim() && !selectedFile) return;
+
+    // Edit mode
+    if (editMsg) {
+      if (input.trim()) await onEditMessage?.(editMsg.id, input.trim());
+      setEditMsg(null);
+      setInput("");
+      return;
+    }
+
     setUploading(true);
     setUploadError(null);
 
@@ -124,7 +147,7 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-    if (e.key === "Escape") setReplyTo(null);
+    if (e.key === "Escape") { setReplyTo(null); setEditMsg(null); setInput(""); }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,12 +157,18 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
   };
 
   const handleReply = (msg: { id: string; text: string; sender_id: string }) => {
+    setEditMsg(null);
     const member = chat.members.find((m) => m.user_id === msg.sender_id);
     const senderName = msg.sender_id === user?.id
       ? "You"
       : member?.profiles?.display_name || member?.profiles?.username || "Unknown";
     setReplyTo({ id: msg.id, text: msg.text, senderName });
     inputRef.current?.focus();
+  };
+
+  const handleEdit = (msg: { id: string; text: string }) => {
+    setReplyTo(null);
+    setEditMsg({ id: msg.id, text: msg.text });
   };
 
   // Voice recording
@@ -287,6 +316,8 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
                 }}
                 isMine={msg.sender_id === user?.id}
                 onReply={() => handleReply({ id: msg.id, text: msg.content, sender_id: msg.sender_id })}
+                onEdit={() => handleEdit({ id: msg.id, text: msg.content })}
+                onDelete={() => onDeleteMessage?.(msg.id)}
               />
             );
           })}
@@ -310,6 +341,23 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
               <p className="text-xs text-muted-foreground truncate">{replyTo.text}</p>
             </div>
             <button onClick={() => setReplyTo(null)} className="text-muted-foreground hover:text-foreground shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
+        )}
+        {editMsg && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="px-4 py-2 border-t border-border bg-primary/5 flex items-center gap-2"
+          >
+            <Pencil className="h-4 w-4 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-primary">Editing message</p>
+              <p className="text-xs text-muted-foreground truncate">{editMsg.text}</p>
+            </div>
+            <button onClick={() => { setEditMsg(null); setInput(""); }} className="text-muted-foreground hover:text-foreground shrink-0">
               <X className="h-4 w-4" />
             </button>
           </motion.div>

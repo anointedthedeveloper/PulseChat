@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Phone, Video, MessageSquare, Camera, Loader2, UserPlus, Check, Pencil, ZoomIn, Shield, Trash2 } from "lucide-react";
+import { X, Phone, Video, MessageSquare, Camera, Loader2, UserPlus, Check, Pencil, ZoomIn, Shield, ShieldOff, Trash2, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AvatarBubble from "./AvatarBubble";
 import type { EnrichedChatRoom } from "@/hooks/useChat";
@@ -34,20 +34,37 @@ interface UserProfilePanelProps {
   onClose: () => void;
   onStartCall: (type: "audio" | "video") => void;
   onRefresh?: () => void;
+  onRemoveMember?: (chatRoomId: string, userId: string, displayName: string) => Promise<void>;
+  onLeaveGroup?: (chatRoomId: string, displayName: string) => Promise<void>;
+  onPromoteToAdmin?: (chatRoomId: string, userId: string, displayName: string) => Promise<void>;
+  onDemoteAdmin?: (chatRoomId: string, userId: string, displayName: string) => Promise<void>;
+  onSendSystemMessage?: (chatRoomId: string, text: string) => Promise<void>;
 }
 
 interface UserProfile { id: string; username: string; display_name: string | null; avatar_url: string | null; status: string; }
 
-const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserProfilePanelProps) => {
+const RoleBadge = ({ role }: { role: string | null | undefined }) => {
+  if (!role || role === "member") return null;
+  return (
+    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${role === "owner" ? "bg-yellow-500/20 text-yellow-500" : "bg-primary/20 text-primary"}`}>
+      {role === "owner" ? "Owner" : "Admin"}
+    </span>
+  );
+};
+
+const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh, onRemoveMember, onLeaveGroup, onPromoteToAdmin, onDemoteAdmin, onSendSystemMessage }: UserProfilePanelProps) => {
   const { user } = useAuth();
   const otherMember = chat.members.find((m) => m.user_id !== user?.id);
   const profile = otherMember?.profiles;
-  const isAdmin = chat.currentUserRole === "admin";
+  const currentUserRole = chat.currentUserRole;
+  const isOwner = currentUserRole === "owner";
+  const isAdmin = currentUserRole === "admin" || isOwner;
   const onlineCount = chat.onlineCount ?? 0;
 
   const [avatarLightbox, setAvatarLightbox] = useState(false);
   const [editingGroup, setEditingGroup] = useState(false);
   const [groupName, setGroupName] = useState(chat.displayName);
+  const [groupDesc, setGroupDesc] = useState((chat as any).description || "");
   const [groupIcon, setGroupIcon] = useState<string | null>(null);
   const [savingGroup, setSavingGroup] = useState(false);
   const [showAddMembers, setShowAddMembers] = useState(false);
@@ -57,10 +74,12 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
   const [addingMembers, setAddingMembers] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
+  const [leavingGroup, setLeavingGroup] = useState(false);
   const iconRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setGroupName(chat.displayName);
+    setGroupDesc((chat as any).description || "");
     setEditingGroup(false);
     setShowAddMembers(false);
     setSelectedToAdd([]);
@@ -93,9 +112,13 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
   const saveGroupChanges = async () => {
     if (!groupName.trim()) return;
     setSavingGroup(true);
-    const updates: any = { name: groupName.trim() };
+    const updates: any = { name: groupName.trim(), description: groupDesc.trim() || null };
     if (groupIcon) updates.icon_url = groupIcon.split("?t=")[0];
+    const oldName = chat.displayName;
     await supabase.from("chat_rooms").update(updates).eq("id", chat.id);
+    if (groupName.trim() !== oldName) {
+      await onSendSystemMessage?.(chat.id, `Group name changed to "${groupName.trim()}"`);
+    }
     setSavingGroup(false);
     setEditingGroup(false);
     onRefresh?.();
@@ -105,21 +128,46 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
     if (!selectedToAdd.length) return;
     setAddingMembers(true);
     await supabase.from("chat_members").insert(
-      selectedToAdd.map((uid) => ({ chat_room_id: chat.id, user_id: uid }))
+      selectedToAdd.map((uid) => ({ chat_room_id: chat.id, user_id: uid, role: "member" })) as any
     );
+    const names = allUsers.filter((u) => selectedToAdd.includes(u.id)).map((u) => u.display_name || u.username).join(", ");
+    await onSendSystemMessage?.(chat.id, `${names} ${selectedToAdd.length > 1 ? "were" : "was"} added to the group`);
     setAddingMembers(false);
     setShowAddMembers(false);
     setSelectedToAdd([]);
     onRefresh?.();
   };
 
-  const makeAdmin = async (userId: string) => {
-    await supabase.from("chat_members")
-      .update({ role: "admin" } as any)
-      .eq("chat_room_id", chat.id)
-      .eq("user_id", userId)
-      .then(() => {}).catch(() => {});
+  const handleRemoveMember = async (userId: string) => {
+    const member = chat.members.find((m) => m.user_id === userId);
+    const name = member?.profiles?.display_name || member?.profiles?.username || "Member";
+    if (!window.confirm(`Remove ${name} from the group?`)) return;
+    await onRemoveMember?.(chat.id, userId, name);
     onRefresh?.();
+  };
+
+  const handlePromote = async (userId: string) => {
+    const member = chat.members.find((m) => m.user_id === userId);
+    const name = member?.profiles?.display_name || member?.profiles?.username || "Member";
+    await onPromoteToAdmin?.(chat.id, userId, name);
+    onRefresh?.();
+  };
+
+  const handleDemote = async (userId: string) => {
+    const member = chat.members.find((m) => m.user_id === userId);
+    const name = member?.profiles?.display_name || member?.profiles?.username || "Member";
+    await onDemoteAdmin?.(chat.id, userId, name);
+    onRefresh?.();
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!window.confirm("Leave this group?")) return;
+    setLeavingGroup(true);
+    const myProfile = chat.members.find((m) => m.user_id === user?.id);
+    const myName = myProfile?.profiles?.display_name || myProfile?.profiles?.username || "Someone";
+    await onLeaveGroup?.(chat.id, myName);
+    setLeavingGroup(false);
+    onClose();
   };
 
   const deleteGroup = async () => {
@@ -198,8 +246,15 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                     <input
                       value={groupName}
                       onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="Group name"
                       className="w-full bg-muted text-sm text-foreground rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary text-center"
                       autoFocus
+                    />
+                    <input
+                      value={groupDesc}
+                      onChange={(e) => setGroupDesc(e.target.value)}
+                      placeholder="Description (optional)"
+                      className="w-full bg-muted text-xs text-foreground rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary text-center"
                     />
                     <div className="flex gap-2">
                       <button onClick={() => setEditingGroup(false)} className="flex-1 text-xs py-1.5 rounded-lg bg-muted text-muted-foreground">Cancel</button>
@@ -218,6 +273,9 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                         </button>
                       )}
                     </div>
+                    {chat.is_group && (chat as any).description && (
+                      <p className="text-xs text-muted-foreground mt-1 text-center px-2">{(chat as any).description}</p>
+                    )}
                     {!chat.is_group && profile?.username && (
                       <p className="text-xs text-muted-foreground mt-0.5">@{profile.username}</p>
                     )}
@@ -298,37 +356,64 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                   </AnimatePresence>
 
                   <div className="space-y-2">
-                    {chat.members.map((m) => (
-                      <div key={m.user_id} className="flex items-center gap-2.5">
-                        <AvatarBubble letter={m.profiles?.username?.[0]?.toUpperCase() || "?"} status={m.profiles?.status as "online" | "offline"} size="sm" imageUrl={m.profiles?.avatar_url} />
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className="text-xs font-medium text-foreground truncate flex items-center gap-1">
-                            {m.profiles?.display_name || m.profiles?.username}
-                            {m.user_id === user?.id && <span className="text-muted-foreground"> (you)</span>}
-                            {m.role === "admin" && <span className="text-[9px] bg-primary/20 text-primary px-1 py-0.5 rounded font-semibold">Admin</span>}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">@{m.profiles?.username}</span>
+                    {chat.members.map((m) => {
+                      const isMe = m.user_id === user?.id;
+                      const memberRole = m.role;
+                      const memberName = m.profiles?.display_name || m.profiles?.username || "Unknown";
+                      const canManage = isAdmin && !isMe && memberRole !== "owner";
+                      const canPromote = canManage && memberRole !== "admin";
+                      const canDemote = isOwner && memberRole === "admin";
+                      const canRemove = canManage;
+
+                      return (
+                        <div key={m.user_id} className="flex items-center gap-2.5">
+                          <AvatarBubble letter={m.profiles?.username?.[0]?.toUpperCase() || "?"} status={m.profiles?.status as "online" | "offline"} size="sm" imageUrl={m.profiles?.avatar_url} />
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-xs font-medium text-foreground truncate flex items-center gap-1">
+                              {memberName}
+                              {isMe && <span className="text-muted-foreground">(you)</span>}
+                              <RoleBadge role={memberRole} />
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">@{m.profiles?.username}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            {canPromote && (
+                              <button onClick={() => handlePromote(m.user_id)} title="Make admin" className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                                <Shield className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {canDemote && (
+                              <button onClick={() => handleDemote(m.user_id)} title="Remove admin" className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 transition-colors">
+                                <ShieldOff className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {canRemove && (
+                              <button onClick={() => handleRemoveMember(m.user_id)} title="Remove from group" className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        {/* Make admin — only for admins, on non-admin members that aren't self */}
-                        {isAdmin && m.user_id !== user?.id && m.role !== "admin" && (
-                          <button
-                            onClick={() => makeAdmin(m.user_id)}
-                            title="Make admin"
-                            className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
-                          >
-                            <Shield className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
-                  {/* Delete group — admin only */}
-                  {isAdmin && (
+                  {/* Leave group */}
+                  <button
+                    onClick={handleLeaveGroup}
+                    disabled={leavingGroup}
+                    className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl py-2.5 transition-colors border border-border"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    {leavingGroup ? "Leaving..." : "Leave Group"}
+                  </button>
+
+                  {/* Delete group — owner only */}
+                  {isOwner && (
                     <button
                       onClick={deleteGroup}
                       disabled={deletingGroup}
-                      className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-destructive hover:bg-destructive/10 rounded-xl py-2.5 transition-colors border border-destructive/30"
+                      className="mt-2 w-full flex items-center justify-center gap-2 text-xs text-destructive hover:bg-destructive/10 rounded-xl py-2.5 transition-colors border border-destructive/30"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       {deletingGroup ? "Deleting..." : "Delete Group"}
