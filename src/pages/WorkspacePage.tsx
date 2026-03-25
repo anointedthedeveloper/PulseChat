@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Hash, ArrowLeft, Send, Smile, Paperclip, Mic, X, Users } from "lucide-react";
+import { Hash, ArrowLeft, Send, Smile, X, Users, UserPlus, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -30,7 +30,7 @@ const WorkspacePage = () => {
   const {
     workspaces, activeWorkspace, channels, members, tasks, loading,
     selectWorkspace, createWorkspace, joinWorkspace, createChannel,
-    setDevStatus, createTask, updateTaskStatus,
+    setDevStatus, createTask, updateTaskStatus, addMember,
   } = useWorkspace();
 
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
@@ -41,14 +41,17 @@ const WorkspacePage = () => {
   const [showCreateWs, setShowCreateWs] = useState(false);
   const [showJoinWs, setShowJoinWs] = useState(false);
   const [showCreateCh, setShowCreateCh] = useState(false);
+  const [showAddPeople, setShowAddPeople] = useState(false);
   const [wsName, setWsName] = useState("");
   const [wsDesc, setWsDesc] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [chName, setChName] = useState("");
+  const [addUsername, setAddUsername] = useState("");
+  const [addError, setAddError] = useState("");
+  const [addSuccess, setAddSuccess] = useState("");
   const [taskFromMsg, setTaskFromMsg] = useState<{ id: string; content: string } | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-select first workspace
   useEffect(() => {
@@ -109,6 +112,15 @@ const WorkspacePage = () => {
     setShowTasks(true);
   }, [activeWorkspace, taskTitle, activeChannel, taskFromMsg, createTask]);
 
+  const handleAddPeople = useCallback(async () => {
+    if (!activeWorkspace || !addUsername.trim()) return;
+    setAddError("");
+    setAddSuccess("");
+    const err = await addMember(activeWorkspace.id, addUsername.trim());
+    if (err) { setAddError(err); }
+    else { setAddSuccess(`@${addUsername.trim()} added!`); setAddUsername(""); }
+  }, [activeWorkspace, addUsername, addMember]);
+
   const handleSelectWorkspace = useCallback(async (ws: any) => {
     setActiveChannel(null);
     await selectWorkspace(ws);
@@ -163,22 +175,28 @@ const WorkspacePage = () => {
         {/* Channel header */}
         {activeChannel ? (
           <div className="px-4 py-3 border-b border-border bg-card/80 backdrop-blur-sm flex items-center gap-3 shrink-0">
-            <button onClick={() => navigate("/")} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors">
-              <ArrowLeft className="h-4 w-4" />
+            <button onClick={() => navigate("/")} title="Back to chats"
+              className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors">
+              <MessageSquare className="h-4 w-4" />
             </button>
             <Hash className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
               <h2 className="text-sm font-semibold text-foreground">{activeChannel.name}</h2>
               {activeChannel.description && <p className="text-[11px] text-muted-foreground">{activeChannel.description}</p>}
             </div>
+            <button onClick={() => { setShowAddPeople(true); setAddError(""); setAddSuccess(""); setAddUsername(""); }}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted">
+              <UserPlus className="h-3.5 w-3.5" /> Add people
+            </button>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Users className="h-3.5 w-3.5" />{members.length}
             </div>
           </div>
         ) : (
           <div className="px-4 py-3 border-b border-border bg-card/80 flex items-center gap-3 shrink-0">
-            <button onClick={() => navigate("/")} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors">
-              <ArrowLeft className="h-4 w-4" />
+            <button onClick={() => navigate("/")} title="Back to chats"
+              className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors">
+              <MessageSquare className="h-4 w-4" />
             </button>
             <span className="text-sm text-muted-foreground">
               {loading ? "Loading..." : workspaces.length === 0 ? "Create or join a workspace to get started" : "Select a channel"}
@@ -341,6 +359,76 @@ const WorkspacePage = () => {
                 <button onClick={() => setShowJoinWs(false)} className="flex-1 py-2 rounded-xl bg-muted text-sm text-muted-foreground">Cancel</button>
                 <button onClick={handleJoinWorkspace} disabled={inviteCode.length < 6}
                   className="flex-1 py-2 rounded-xl gradient-primary text-sm text-white font-medium disabled:opacity-40">Join</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add people modal */}
+      <AnimatePresence>
+        {showAddPeople && activeWorkspace && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+            onClick={() => setShowAddPeople(false)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-card rounded-2xl w-full max-w-sm p-5 border border-border shadow-2xl"
+              onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold">Add People to {activeWorkspace.name}</h3>
+                <button onClick={() => setShowAddPeople(false)} className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Invite code */}
+              <div className="bg-muted rounded-xl px-3 py-2.5 mb-4">
+                <p className="text-[10px] text-muted-foreground mb-1">Share invite code</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-lg font-bold text-primary tracking-widest">{activeWorkspace.invite_code}</span>
+                  <button onClick={() => { navigator.clipboard.writeText(activeWorkspace.invite_code); }}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-sidebar-accent">
+                    Copy
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Others can join with this code</p>
+              </div>
+              {/* Add by username */}
+              <p className="text-xs font-medium text-muted-foreground mb-2">Or add directly by username</p>
+              <div className="flex gap-2 mb-2">
+                <input
+                  value={addUsername}
+                  onChange={(e) => { setAddUsername(e.target.value); setAddError(""); setAddSuccess(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddPeople()}
+                  placeholder="@username"
+                  className="flex-1 bg-muted text-sm text-foreground rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-primary"
+                  autoFocus
+                />
+                <button onClick={handleAddPeople} disabled={!addUsername.trim()}
+                  className="px-3 py-2 rounded-xl gradient-primary text-sm text-white font-medium disabled:opacity-40">
+                  Add
+                </button>
+              </div>
+              {addError && <p className="text-xs text-destructive">{addError}</p>}
+              {addSuccess && <p className="text-xs text-green-500">{addSuccess}</p>}
+              {/* Current members */}
+              <div className="mt-4">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Members · {members.length}</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {members.map((m) => (
+                    <div key={m.user_id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
+                      <div className="h-6 w-6 rounded-full gradient-primary flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                        {m.profiles.username[0]?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{m.profiles.display_name || m.profiles.username}</p>
+                        <p className="text-[10px] text-muted-foreground">@{m.profiles.username}</p>
+                      </div>
+                      <span className={`text-[9px] font-bold ${
+                        m.role === "owner" ? "text-primary" : m.role === "admin" ? "text-yellow-500" : "text-muted-foreground"
+                      }`}>{m.role.toUpperCase()}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </motion.div>
           </motion.div>

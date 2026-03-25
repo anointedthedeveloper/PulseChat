@@ -191,11 +191,26 @@ export function useWorkspace() {
     await fetchTasks(workspaceId);
   }, [fetchTasks]);
 
+  const addMember = useCallback(async (workspaceId: string, username: string) => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", username.trim().toLowerCase())
+      .maybeSingle();
+    if (!profile) return "User not found";
+    const { error } = await supabase.from("workspace_members").upsert({
+      workspace_id: workspaceId, user_id: profile.id, role: "member",
+    } as any);
+    if (error) return "Already a member or error adding";
+    await fetchMembers(workspaceId);
+    return null;
+  }, [fetchMembers]);
+
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
 
   return {
     workspaces, activeWorkspace, channels, members, tasks, loading,
     fetchWorkspaces, selectWorkspace, createWorkspace, joinWorkspace,
-    createChannel, setDevStatus, createTask, updateTaskStatus, fetchTasks,
+    createChannel, setDevStatus, createTask, updateTaskStatus, addMember, fetchTasks,
   };
 }
