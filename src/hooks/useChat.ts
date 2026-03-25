@@ -492,11 +492,11 @@ export function useChat() {
 
   useEffect(() => {
     if (!user) return;
-
+    let mounted = true;
     let channel: RealtimeChannel;
 
     channel = supabase
-      .channel("messages-realtime")
+      .channel(`messages-realtime-${user.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
@@ -562,7 +562,7 @@ export function useChat() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { mounted = false; supabase.removeChannel(channel); };
   }, [user, activeChatId, fetchChatRooms]);
 
   return {

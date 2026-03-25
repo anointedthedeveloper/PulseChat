@@ -127,12 +127,6 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
     return { url: urlData.publicUrl, type: customType || file.type, name: file.name };
   }, [user]);
 
-  // Mark messages as read (skip if ghost mode)
-  useEffect(() => {
-    if (ghostMode || !user || !activeChatId) return;
-    // handled in useChat fetchMessages
-  }, [ghostMode, user, activeChatId]);
-
   const handleSend = async (scheduledFor?: Date) => {
     if (!input.trim() && !selectedFile) return;
 
