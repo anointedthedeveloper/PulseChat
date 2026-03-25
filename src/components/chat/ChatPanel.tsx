@@ -46,7 +46,7 @@ interface ChatPanelProps {
   onAcceptRequest?: () => void;
   onDeclineRequest?: () => void;
   onStartCall: (type: "audio" | "video") => void;
-  onTyping?: () => void;
+  onTyping?: (inputLen?: number) => void;
   isOtherTyping?: boolean;
   typingUsers?: string[];
   onToggleSidebar?: () => void;

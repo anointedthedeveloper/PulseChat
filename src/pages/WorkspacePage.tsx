@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Hash, Send, Smile, X, Users, UserPlus, MessageSquare, Github, LayoutDashboard, Link2, Menu, PanelLeftClose, PanelLeftOpen, Settings, MessageCircleOff, MessageCircle } from "lucide-react";
+import { Hash, Send, Smile, X, Users, UserPlus, MessageSquare, Github, LayoutDashboard, Link2, Menu, Settings, MessageCircleOff, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -278,6 +278,8 @@ const WorkspacePage = () => {
           onSetDevStatus={(s) => activeWorkspace && setDevStatus(activeWorkspace.id, s)}
           onOpenTasks={() => setShowTasks((v) => !v)}
           onOpenProjects={() => setShowProjects((v) => !v)}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebarCollapsed={() => setSidebarCollapsed((value) => !value)}
         />
       </div>
 
@@ -288,9 +290,6 @@ const WorkspacePage = () => {
           <div className="px-4 py-3 rounded-2xl border border-border/70 bg-card/85 backdrop-blur-sm flex items-center gap-3 shrink-0 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
             <button onClick={() => setSidebarOpen(true)} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors lg:hidden">
               <Menu className="h-4 w-4" />
-            </button>
-            <button onClick={() => setSidebarCollapsed((value) => !value)} className="hidden lg:flex h-8 w-8 rounded-lg items-center justify-center hover:bg-muted text-muted-foreground transition-colors">
-              {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
             <button onClick={() => navigate("/")} title="Back to chats"
               className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors">
@@ -454,7 +453,7 @@ const WorkspacePage = () => {
           {/* Tasks panel */}
           <AnimatePresence>
             {showTasks && activeWorkspace && (
-              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 320, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 320, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="hidden xl:block overflow-hidden shrink-0">
                 <TasksPanel
                   tasks={tasks}
                   members={members}
@@ -469,7 +468,7 @@ const WorkspacePage = () => {
 
           <AnimatePresence>
             {showProjects && activeWorkspace && (
-              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 384, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 360, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="hidden xl:block overflow-hidden shrink-0">
                 <ProjectsPanel
                   projects={projects}
                   linkedRepos={linkedRepos.map((repo) => repo.repo_full_name)}
@@ -486,7 +485,7 @@ const WorkspacePage = () => {
           {/* GitHub panel */}
           <AnimatePresence>
             {showGithub && (
-              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 320, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 320, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="hidden lg:block overflow-hidden shrink-0">
                 <GithubPanel
                   onClose={() => setShowGithub(false)}
                   workspaceId={activeWorkspace?.id || null}
@@ -511,7 +510,7 @@ const WorkspacePage = () => {
           {/* Repo file browser */}
           <AnimatePresence>
             {showFileBrowser && fileBrowserRepo && (
-              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 980, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 960, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="hidden xl:block overflow-hidden shrink-0">
                 <RepoFileBrowser
                   owner={fileBrowserRepo.owner}
                   repo={fileBrowserRepo.repo}
