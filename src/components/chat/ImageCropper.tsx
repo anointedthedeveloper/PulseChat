@@ -21,6 +21,18 @@ const ImageCropper = ({ src, onCrop, onCancel, size = 400 }: ImageCropperProps) 
   const dragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0 });
   const [imgNaturalSize, setImgNaturalSize] = useState({ w: 1, h: 1 });
 
+  // Attach non-passive wheel listener to canvas to allow preventDefault
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      setScale((s) => Math.min(8, Math.max(0.2, s - e.deltaY * 0.001)));
+    };
+    canvas.addEventListener("wheel", handler, { passive: false });
+    return () => canvas.removeEventListener("wheel", handler);
+  }, []);
+
   // Load image
   useEffect(() => {
     const img = new Image();
@@ -84,10 +96,7 @@ const ImageCropper = ({ src, onCrop, onCancel, size = 400 }: ImageCropperProps) 
 
   const onPointerUp = useCallback(() => setDragging(false), []);
 
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    setScale((s) => Math.min(8, Math.max(0.2, s - e.deltaY * 0.001)));
-  }, []);
+  const onWheel = useCallback(() => {}, []); // handled by native listener above
 
   const handleCrop = useCallback(() => {
     const img = imgRef.current;
@@ -142,7 +151,6 @@ const ImageCropper = ({ src, onCrop, onCancel, size = 400 }: ImageCropperProps) 
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onWheel={onWheel}
         />
 
         {/* Zoom slider */}

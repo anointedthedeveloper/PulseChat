@@ -352,7 +352,7 @@ const ChatSidebar = ({ chats, activeChatId, onSelectChat, onCreateDM, onCreateGr
               <AvatarBubble
                 letter={chat.displayAvatar}
                 status={chat.is_group ? undefined : (chat.otherMemberStatus as "online" | "offline" | undefined)}
-                imageUrl={chat.is_group ? null : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
+                imageUrl={chat.is_group ? ((chat as any).icon_url ?? null) : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
               />
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center justify-between gap-1">

@@ -10,6 +10,7 @@ import AvatarBubble from "./AvatarBubble";
 import EmojiPicker from "./EmojiPicker";
 import FilePreview from "./FilePreview";
 import TypingIndicator from "./TypingIndicator";
+import ImageCropper from "./ImageCropper";
 import type { EnrichedChatRoom } from "@/hooks/useChat";
 
 interface Message {
@@ -67,16 +68,17 @@ const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessa
   const [editMsg, setEditMsg] = useState<EditState | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null); // original file for non-image types
+
   const { wallpaper } = useThemeContext();
   const prevMsgCount = useRef(messages.length);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { user } = useAuth();
 
   // Play sound on new incoming message
   useEffect(() => {
@@ -154,8 +156,26 @@ const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessa
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) { setSelectedFile(file); setUploadError(null); }
+    if (!file) return;
+    // Show cropper for images, otherwise use directly
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (ev) => { setCropSrc(ev.target?.result as string); setCropFile(file); };
+      reader.readAsDataURL(file);
+    } else {
+      setSelectedFile(file);
+      setUploadError(null);
+    }
     e.target.value = "";
+  };
+
+  const handleCroppedImage = async (blob: Blob) => {
+    setCropSrc(null);
+    const name = cropFile?.name.replace(/\.[^.]+$/, ".jpg") || `image-${Date.now()}.jpg`;
+    const file = new File([blob], name, { type: "image/jpeg" });
+    setSelectedFile(file);
+    setUploadError(null);
+    setCropFile(null);
   };
 
   const handleReply = (msg: { id: string; text: string; sender_id: string }) => {
@@ -228,6 +248,9 @@ const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessa
       className={`h-full flex flex-col bg-background min-w-0 ${wallpaper ? "chat-wallpaper" : ""}`}
       style={wallpaper ? { backgroundImage: `url(${wallpaper})` } : undefined}
     >
+      {cropSrc && (
+        <ImageCropper src={cropSrc} onCrop={handleCroppedImage} onCancel={() => { setCropSrc(null); setCropFile(null); }} />
+      )}
       {/* Header */}
       <div className="px-3 py-3 flex items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -239,7 +262,7 @@ const ChatPanel = ({ chat, messages, onSendMessage, onEditMessage, onDeleteMessa
             <AvatarBubble
               letter={chat.displayAvatar}
               status={chat.is_group ? undefined : (chat.otherMemberStatus as "online" | "offline" | undefined)}
-              imageUrl={chat.is_group ? null : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
+              imageUrl={chat.is_group ? ((chat as any).icon_url ?? null) : (chat.members.find(m => m.user_id !== user?.id)?.profiles?.avatar_url ?? null)}
             />
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground truncate">{chat.displayName}</h2>
