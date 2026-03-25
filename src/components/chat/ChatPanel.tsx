@@ -15,6 +15,7 @@ interface Message {
   sender_id: string;
   content: string;
   is_read: boolean;
+  is_delivered?: boolean;
   created_at: string;
   file_url?: string | null;
   file_type?: string | null;
@@ -35,6 +36,7 @@ interface ChatPanelProps {
   onToggleProfile?: () => void;
   profileOpen?: boolean;
   isSecondPanel?: boolean;
+  onToggleSecondProfile?: () => void;
 }
 
 interface ReplyState {
@@ -43,7 +45,7 @@ interface ReplyState {
   senderName: string;
 }
 
-const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOtherTyping, onToggleSidebar, onToggleProfile, profileOpen, isSecondPanel }: ChatPanelProps) => {
+const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOtherTyping, onToggleSidebar, onToggleProfile, profileOpen, isSecondPanel, onToggleSecondProfile }: ChatPanelProps) => {
   const [input, setInput] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -192,16 +194,23 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground truncate">{chat.displayName}</h2>
               <p className="text-[11px] text-muted-foreground">
-                {chat.is_group ? `${chat.members.length} members` : chat.otherMemberStatus === "online" ? "Online" : "Offline"}
+                {chat.is_group
+                  ? `${chat.members.length} members · ${chat.onlineCount ?? 0} online`
+                  : chat.otherMemberStatus === "online" ? "Online" : "Offline"}
               </p>
             </div>
           </button>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {isSecondPanel && (
-            <button onClick={onToggleSidebar} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Close split view">
-              <X className="h-4 w-4" />
-            </button>
+            <>
+              <button onClick={onToggleSecondProfile} className={`h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground`}>
+                <Info className="h-4 w-4" />
+              </button>
+              <button onClick={onToggleSidebar} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Close split view">
+                <X className="h-4 w-4" />
+              </button>
+            </>
           )}
           {!isSecondPanel && (
             <>
@@ -237,6 +246,7 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
                   text: msg.content,
                   timestamp: msgDate,
                   read: msg.is_read,
+                  delivered: msg.is_delivered,
                   fileUrl: msg.file_url || undefined,
                   fileType: msg.file_type || undefined,
                   fileName: msg.file_name || undefined,

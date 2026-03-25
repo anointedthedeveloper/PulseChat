@@ -13,6 +13,7 @@ interface ChatRoom {
 
 interface ChatMember {
   user_id: string;
+  role?: string | null;
   profiles: {
     id: string;
     username: string;
@@ -29,6 +30,7 @@ interface Message {
   sender_id: string;
   content: string;
   is_read: boolean;
+  is_delivered?: boolean;
   created_at: string;
   file_type?: string | null;
   reply_to_id?: string | null;
@@ -44,6 +46,8 @@ export interface EnrichedChatRoom extends ChatRoom {
   displayName: string;
   displayAvatar: string;
   otherMemberStatus?: string;
+  onlineCount?: number;
+  currentUserRole?: string | null;
 }
 
 export function useChat() {
@@ -78,7 +82,7 @@ export function useChat() {
     // Batch all queries in parallel
     const [roomsRes, allMembersRes] = await Promise.all([
       supabase.from("chat_rooms").select("*").in("id", roomIds),
-      supabase.from("chat_members").select("chat_room_id, user_id").in("chat_room_id", roomIds),
+      supabase.from("chat_members").select("chat_room_id, user_id, role").in("chat_room_id", roomIds),
     ]);
 
     const rooms = roomsRes.data;
@@ -96,11 +100,14 @@ export function useChat() {
     const allMessages = lastMsgsRes.data || [];
 
     const enriched: EnrichedChatRoom[] = rooms.map((room) => {
-      const roomMemberIds = allMemberRows.filter((m) => m.chat_room_id === room.id).map((m) => m.user_id);
-      const members: ChatMember[] = roomMemberIds.map((uid) => ({
-        user_id: uid,
-        profiles: profileMap.get(uid) as ChatMember["profiles"],
+      const roomMemberRows = allMemberRows.filter((m) => m.chat_room_id === room.id);
+      const members: ChatMember[] = roomMemberRows.map((row) => ({
+        user_id: row.user_id,
+        role: (row as any).role ?? null,
+        profiles: profileMap.get(row.user_id) as ChatMember["profiles"],
       })).filter((m) => m.profiles);
+      const onlineCount = members.filter((m) => m.profiles?.status === "online").length;
+      const currentUserRole = members.find((m) => m.user_id === user.id)?.role ?? null;
 
       const roomMessages = allMessages.filter((m) => m.chat_room_id === room.id);
       const lastMessage = roomMessages[0];
@@ -121,6 +128,8 @@ export function useChat() {
         displayName,
         displayAvatar,
         otherMemberStatus: otherMember?.profiles?.status,
+        onlineCount,
+        currentUserRole,
       };
     });
 
@@ -156,6 +165,15 @@ export function useChat() {
         .update({ is_read: true })
         .eq("chat_room_id", activeChatId)
         .eq("is_read", false)
+        .neq("sender_id", user.id);
+    }
+    // Mark undelivered as delivered
+    if (user) {
+      await supabase
+        .from("messages")
+        .update({ is_delivered: true } as any)
+        .eq("chat_room_id", activeChatId)
+        .eq("is_delivered", false)
         .neq("sender_id", user.id);
     }
   }, [activeChatId, user]);
@@ -249,10 +267,11 @@ export function useChat() {
 
       if (!newRoom) return null;
 
-      const members = [user.id, ...memberIds].map((id) => ({
-        chat_room_id: newRoom.id,
-        user_id: id,
-      }));
+      // Creator gets admin role, others get member
+      const members = [
+        { chat_room_id: newRoom.id, user_id: user.id, role: "admin" },
+        ...memberIds.map((id) => ({ chat_room_id: newRoom.id, user_id: id, role: "member" })),
+      ];
 
       await supabase.from("chat_members").insert(members);
       await fetchChatRooms();
@@ -329,9 +348,13 @@ export function useChat() {
               return [...prev, newMsg];
             });
             if (newMsg.sender_id !== user.id) {
-              supabase.from("messages").update({ is_read: true }).eq("id", newMsg.id);
+              supabase.from("messages").update({ is_read: true, is_delivered: true } as any).eq("id", newMsg.id);
             }
-          } else if (newMsg.sender_id !== user.id && document.hidden) {
+          } else if (newMsg.sender_id !== user.id) {
+            // Mark as delivered even when not in active chat
+            supabase.from("messages").update({ is_delivered: true } as any).eq("id", newMsg.id);
+          }
+          if (newMsg.sender_id !== user.id && document.hidden) {
             // Push notification when app is in background
             if (Notification.permission === "granted" && !newMsg.file_type?.startsWith("call/")) {
               const { data: sender } = await supabase
@@ -353,6 +376,14 @@ export function useChat() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles" },
         () => { fetchChatRooms(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
+        (payload) => {
+          const updated = payload.new as Message;
+          setMessages((prev) => prev.map((m) => m.id === updated.id ? { ...m, is_read: updated.is_read, is_delivered: (updated as any).is_delivered } : m));
+        }
       )
       .subscribe();
 

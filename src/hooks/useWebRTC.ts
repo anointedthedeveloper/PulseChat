@@ -23,13 +23,22 @@ export interface CallSignal {
 function createRingtone() {
   let interval: ReturnType<typeof setInterval> | null = null;
 
+  const RINGTONE_FREQS: Record<string, number[][]> = {
+    default: [[880, 0, 0.15], [1100, 0.2, 0.15], [880, 0.4, 0.15]],
+    classic: [[660, 0, 0.2], [660, 0.3, 0.2], [660, 0.6, 0.2]],
+    soft:    [[523, 0, 0.3], [659, 0.35, 0.3], [784, 0.7, 0.3]],
+    pulse:   [[1000, 0, 0.08], [1000, 0.15, 0.08], [1000, 0.3, 0.08], [1000, 0.45, 0.08]],
+  };
+
   const ring = () => {
     try {
+      const key = localStorage.getItem("chatflow_ringtone") || "default";
+      const freqs = RINGTONE_FREQS[key] || RINGTONE_FREQS.default;
       const ctx = new AudioContext();
       const gain = ctx.createGain();
       gain.gain.value = 0.25;
       gain.connect(ctx.destination);
-      [[880, 0, 0.15], [1100, 0.2, 0.15], [880, 0.4, 0.15]].forEach(([freq, start, dur]) => {
+      freqs.forEach(([freq, start, dur]) => {
         const osc = ctx.createOscillator();
         osc.type = "sine";
         osc.frequency.value = freq;

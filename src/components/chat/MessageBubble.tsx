@@ -8,6 +8,7 @@ interface MessageData {
   text: string;
   timestamp: Date;
   read: boolean;
+  delivered?: boolean;
   fileUrl?: string;
   fileType?: string;
   fileName?: string;
@@ -251,8 +252,10 @@ const MessageBubble = ({ message, isMine, onReply, showDate }: MessageBubbleProp
                 </span>
                 {isMine && (
                   message.read
-                    ? <CheckCheck className="h-3.5 w-3.5 text-sky-300" />
-                    : <Check className="h-3.5 w-3.5 text-primary-foreground/50" />
+                    ? <CheckCheck className="h-3.5 w-3.5 text-sky-300" title="Seen" />
+                    : message.delivered
+                    ? <CheckCheck className="h-3.5 w-3.5 text-primary-foreground/50" title="Delivered" />
+                    : <Check className="h-3.5 w-3.5 text-primary-foreground/50" title="Sent" />
                 )}
               </div>
             )}

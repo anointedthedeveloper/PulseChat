@@ -42,6 +42,8 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
   const { user } = useAuth();
   const otherMember = chat.members.find((m) => m.user_id !== user?.id);
   const profile = otherMember?.profiles;
+  const isAdmin = chat.currentUserRole === "admin";
+  const onlineCount = chat.onlineCount ?? 0;
 
   const [avatarLightbox, setAvatarLightbox] = useState(false);
   const [editingGroup, setEditingGroup] = useState(false);
@@ -148,7 +150,7 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
               {/* Avatar + name */}
               <div className="flex flex-col items-center py-6 px-4 border-b border-border">
                 {chat.is_group ? (
-                  <div className="relative group cursor-pointer" onClick={() => iconRef.current?.click()}>
+                  <div className="relative group" onClick={() => isAdmin && iconRef.current?.click()} style={{ cursor: isAdmin ? "pointer" : "default" }}>
                     {groupIcon || (chat as any).icon_url ? (
                       <img src={groupIcon || (chat as any).icon_url} alt="Group" className="h-20 w-20 rounded-full object-cover ring-2 ring-primary ring-offset-2 ring-offset-card" />
                     ) : (
@@ -157,9 +159,9 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                       </div>
                     )}
                     <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      {uploadingIcon ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Camera className="h-5 w-5 text-white" />}
+                      {uploadingIcon ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : isAdmin ? <Camera className="h-5 w-5 text-white" /> : null}
                     </div>
-                    <input ref={iconRef} type="file" className="hidden" accept="image/*" onChange={handleIconUpload} />
+                    <input ref={iconRef} type="file" className="hidden" accept="image/*" onChange={handleIconUpload} disabled={!isAdmin} />
                   </div>
                 ) : (
                   <div className="relative group cursor-pointer" onClick={() => profile?.avatar_url && setAvatarLightbox(true)}>
@@ -191,7 +193,7 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                   <>
                     <div className="flex items-center gap-1.5 mt-3">
                       <h3 className="text-base font-semibold text-foreground">{chat.displayName}</h3>
-                      {chat.is_group && (
+                      {chat.is_group && isAdmin && (
                         <button onClick={() => setEditingGroup(true)} className="text-muted-foreground hover:text-primary transition-colors">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -208,7 +210,9 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                   : chat.otherMemberStatus === "online" ? "bg-green-500/10 text-green-500"
                   : "bg-muted text-muted-foreground"
                 }`}>
-                  {chat.is_group ? `${chat.members.length} members` : chat.otherMemberStatus === "online" ? "Online" : "Offline"}
+                  {chat.is_group
+                    ? `${chat.members.length} members · ${onlineCount} online`
+                    : chat.otherMemberStatus === "online" ? "Online" : "Offline"}
                 </span>
               </div>
 
@@ -235,9 +239,11 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                 <div className="px-4 py-3">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Members</p>
-                    <button onClick={() => setShowAddMembers(!showAddMembers)} className="flex items-center gap-1 text-[11px] text-primary hover:opacity-80 transition-opacity">
-                      <UserPlus className="h-3.5 w-3.5" />Add
-                    </button>
+                    {isAdmin && (
+                      <button onClick={() => setShowAddMembers(!showAddMembers)} className="flex items-center gap-1 text-[11px] text-primary hover:opacity-80 transition-opacity">
+                        <UserPlus className="h-3.5 w-3.5" />Add
+                      </button>
+                    )}
                   </div>
 
                   <AnimatePresence>
@@ -276,10 +282,11 @@ const UserProfilePanel = ({ chat, open, onClose, onStartCall, onRefresh }: UserP
                     {chat.members.map((m) => (
                       <div key={m.user_id} className="flex items-center gap-2.5">
                         <AvatarBubble letter={m.profiles?.username?.[0]?.toUpperCase() || "?"} status={m.profiles?.status as "online" | "offline"} size="sm" imageUrl={m.profiles?.avatar_url} />
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-medium text-foreground truncate">
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="text-xs font-medium text-foreground truncate flex items-center gap-1">
                             {m.profiles?.display_name || m.profiles?.username}
                             {m.user_id === user?.id && <span className="text-muted-foreground"> (you)</span>}
+                            {m.role === "admin" && <span className="text-[9px] bg-primary/20 text-primary px-1 py-0.5 rounded font-semibold">Admin</span>}
                           </span>
                           <span className="text-[10px] text-muted-foreground">@{m.profiles?.username}</span>
                         </div>

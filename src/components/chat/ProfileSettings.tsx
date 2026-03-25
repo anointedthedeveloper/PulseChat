@@ -19,7 +19,27 @@ const ProfileSettings = ({ open, onClose }: ProfileSettingsProps) => {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [ringtone, setRingtone] = useState("default");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const RINGTONES = [
+    { id: "default", label: "Default", freqs: [[880, 0, 0.15], [1100, 0.2, 0.15], [880, 0.4, 0.15]] },
+    { id: "classic", label: "Classic", freqs: [[660, 0, 0.2], [660, 0.3, 0.2], [660, 0.6, 0.2]] },
+    { id: "soft",    label: "Soft",    freqs: [[523, 0, 0.3], [659, 0.35, 0.3], [784, 0.7, 0.3]] },
+    { id: "pulse",   label: "Pulse",   freqs: [[1000, 0, 0.08], [1000, 0.15, 0.08], [1000, 0.3, 0.08], [1000, 0.45, 0.08]] },
+  ] as const;
+
+  const playPreview = (freqs: readonly (readonly number[])[]) => {
+    try {
+      const ctx = new AudioContext();
+      const gain = ctx.createGain(); gain.gain.value = 0.2; gain.connect(ctx.destination);
+      freqs.forEach(([freq, start, dur]) => {
+        const osc = ctx.createOscillator(); osc.type = "sine"; osc.frequency.value = freq;
+        osc.connect(gain); osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + dur);
+      });
+      setTimeout(() => ctx.close(), 1500);
+    } catch {}
+  };
 
   useEffect(() => {
     if (open && profile) {
@@ -27,6 +47,7 @@ const ProfileSettings = ({ open, onClose }: ProfileSettingsProps) => {
       setUsername(profile.username || "");
       setAvatarUrl(profile.avatar_url || "");
       setMessage("");
+      setRingtone(localStorage.getItem("chatflow_ringtone") || "default");
     }
   }, [open, profile]);
 
@@ -59,6 +80,7 @@ const ProfileSettings = ({ open, onClose }: ProfileSettingsProps) => {
     if (error) {
       setMessage(error.message.includes("unique") ? "Username already taken" : error.message);
     } else {
+      localStorage.setItem("chatflow_ringtone", ringtone);
       await refreshProfile();
       setMessage("Profile updated!");
       setTimeout(() => { setMessage(""); onClose(); }, 1000);
@@ -128,6 +150,23 @@ const ProfileSettings = ({ open, onClose }: ProfileSettingsProps) => {
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
                   <input value={user?.email || ""} disabled
                     className="w-full bg-muted/40 text-sm text-muted-foreground rounded-xl px-3 py-2.5 cursor-not-allowed" />
+                </div>
+              </div>
+
+              {/* Ringtone */}
+              <div className="mb-5">
+                <label className="text-xs font-medium text-muted-foreground mb-2 block">Ringtone</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {RINGTONES.map((r) => (
+                    <button key={r.id}
+                      onClick={() => { setRingtone(r.id); playPreview(r.freqs); }}
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
+                        ringtone === r.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                      }`}>
+                      {r.label}
+                      <span className="text-[10px] opacity-60">▶</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 

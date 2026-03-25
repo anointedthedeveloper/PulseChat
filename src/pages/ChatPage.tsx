@@ -16,6 +16,7 @@ const ChatPage = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [secondChatId, setSecondChatId] = useState<string | null>(null);
   const [secondMessages, setSecondMessages] = useState<any[]>([]);
+  const [secondProfileOpen, setSecondProfileOpen] = useState(false);
 
   const {
     chatRooms, activeChat, activeChatId, setActiveChatId,
@@ -96,6 +97,7 @@ const ChatPage = () => {
   // Open a second chat in split view
   const handleOpenSecondChat = useCallback((id: string) => {
     setSecondChatId(id === secondChatId ? null : id);
+    setSecondProfileOpen(false);
   }, [secondChatId]);
 
   const secondChat = chatRooms.find((c) => c.id === secondChatId) || null;
@@ -167,9 +169,10 @@ const ChatPage = () => {
                 messages={secondMessages}
                 onSendMessage={handleSendSecondMessage}
                 onStartCall={() => {}}
-                onToggleSidebar={() => setSecondChatId(null)}
+                onToggleSidebar={() => { setSecondChatId(null); setSecondProfileOpen(false); }}
                 profileOpen={false}
                 isSecondPanel
+                onToggleSecondProfile={() => setSecondProfileOpen((p) => !p)}
               />
             </motion.div>
           )}
@@ -182,6 +185,17 @@ const ChatPage = () => {
             open={profileOpen}
             onClose={() => setProfileOpen(false)}
             onStartCall={handleStartCall}
+            onRefresh={fetchChatRooms}
+          />
+        )}
+
+        {/* Second panel profile */}
+        {secondChat && (
+          <UserProfilePanel
+            chat={secondChat}
+            open={secondProfileOpen}
+            onClose={() => setSecondProfileOpen(false)}
+            onStartCall={() => {}}
             onRefresh={fetchChatRooms}
           />
         )}
