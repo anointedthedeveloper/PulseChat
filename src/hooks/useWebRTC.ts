@@ -183,7 +183,6 @@ export function useWebRTC() {
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log("[WebRTC] iceConnectionState:", pc.iceConnectionState);
       if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
         onConnected();
       } else if (pc.iceConnectionState === "failed") {
@@ -200,13 +199,11 @@ export function useWebRTC() {
     };
 
     pc.onconnectionstatechange = () => {
-      console.log("[WebRTC] connectionState:", pc.connectionState);
       if (pc.connectionState === "connected") onConnected();
       else if (pc.connectionState === "failed") cleanup("ended");
     };
 
     pc.ontrack = (e) => {
-      console.log("[WebRTC] ontrack:", e.track.kind, "streams:", e.streams.length);
       if (e.streams && e.streams[0]) {
         setRemoteStream(e.streams[0]);
       } else {
@@ -261,22 +258,22 @@ export function useWebRTC() {
     setCallState("calling");
     ringtoneRef.current.start();
 
-    const roomId = await getOrCreateCallRoom(targetUserId);
-    chatRoomIdRef.current = roomId;
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: type === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-      });
+      // Get media and room in parallel — saves ~500ms
+      const [stream, roomId] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: type === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+        }),
+        getOrCreateCallRoom(targetUserId),
+      ]);
+
+      chatRoomIdRef.current = roomId;
       localStreamRef.current = stream;
       setLocalStream(stream);
 
       const pc = createPeerConnection(targetUserId);
-      stream.getTracks().forEach((t) => {
-        console.log("[WebRTC] addTrack (caller):", t.kind);
-        pc.addTrack(t, stream);
-      });
+      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
 
       const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: type === "video" });
       await pc.setLocalDescription(offer);
