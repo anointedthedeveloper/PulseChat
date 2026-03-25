@@ -212,24 +212,31 @@ const ChatPanel = ({ chat, messages, onSendMessage, onStartCall, onTyping, isOth
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-3">
         <AnimatePresence initial={false}>
-          {messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              message={{
-                id: msg.id,
-                senderId: msg.sender_id,
-                text: msg.content,
-                timestamp: new Date(msg.created_at),
-                read: msg.is_read,
-                fileUrl: msg.file_url || undefined,
-                fileType: msg.file_type || undefined,
-                fileName: msg.file_name || undefined,
-                replyTo: msg.reply_to_text ? { text: msg.reply_to_text, senderName: msg.reply_to_sender || "Unknown" } : null,
-              }}
-              isMine={msg.sender_id === user?.id}
-              onReply={() => handleReply({ id: msg.id, text: msg.content, sender_id: msg.sender_id })}
-            />
-          ))}
+          {messages.map((msg, i) => {
+            const prev = messages[i - 1];
+            const msgDate = new Date(msg.created_at);
+            const prevDate = prev ? new Date(prev.created_at) : null;
+            const showDate = !prevDate || msgDate.toDateString() !== prevDate.toDateString();
+            return (
+              <MessageBubble
+                key={msg.id}
+                showDate={showDate}
+                message={{
+                  id: msg.id,
+                  senderId: msg.sender_id,
+                  text: msg.content,
+                  timestamp: msgDate,
+                  read: msg.is_read,
+                  fileUrl: msg.file_url || undefined,
+                  fileType: msg.file_type || undefined,
+                  fileName: msg.file_name || undefined,
+                  replyTo: msg.reply_to_text ? { text: msg.reply_to_text, senderName: msg.reply_to_sender || "Unknown" } : null,
+                }}
+                isMine={msg.sender_id === user?.id}
+                onReply={() => handleReply({ id: msg.id, text: msg.content, sender_id: msg.sender_id })}
+              />
+            );
+          })}
         </AnimatePresence>
         {isOtherTyping && <TypingIndicator />}
         <div ref={messagesEndRef} />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Phone, PhoneOff, PhoneMissed, Video, VideoOff, Mic, MicOff } from "lucide-react";
 
 interface CallOverlayProps {
@@ -30,18 +30,23 @@ const CallOverlay = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
 
+  // Assign streams as soon as they arrive
   useEffect(() => {
-    if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
   }, [localStream]);
 
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream;
-    if (remoteAudioRef.current && remoteStream) remoteAudioRef.current.srcObject = remoteStream;
+    if (remoteStream) {
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream;
+    }
   }, [remoteStream]);
 
   if (callState === "idle") return null;
 
-  const isVideo = callType === "video" && callState === "connected";
+  const showVideo = callType === "video";
 
   return (
     <motion.div
@@ -51,71 +56,88 @@ const CallOverlay = ({
       className="fixed inset-0 z-50 flex flex-col"
     >
       {/* Background */}
-      <div className={`absolute inset-0 ${isVideo ? "bg-black" : "bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900"}`} />
+      <div className={`absolute inset-0 ${showVideo && callState === "connected" ? "bg-black" : "bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900"}`} />
 
-      {/* Video streams */}
-      {isVideo && (
-        <>
-          <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
-          <video ref={localVideoRef} autoPlay playsInline muted className="absolute bottom-28 right-4 w-28 h-20 rounded-xl object-cover border-2 border-primary shadow-lg z-10" />
-        </>
+      {/* Remote video — full screen when connected */}
+      {showVideo && callState === "connected" && (
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        />
       )}
 
-      {/* Hidden audio for audio calls */}
+      {/* Local video preview — show whenever we have a video stream */}
+      {showVideo && localStream && (
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`absolute z-10 rounded-xl object-cover border-2 border-primary shadow-lg ${
+            callState === "connected"
+              ? "bottom-28 right-4 w-28 h-20"
+              : "inset-0 w-full h-full opacity-60"
+          }`}
+        />
+      )}
+
+      {/* Audio element for remote audio */}
       <audio ref={remoteAudioRef} autoPlay />
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 gap-6 px-6">
-        {/* Pulse rings for incoming/calling */}
-        {(callState === "calling" || callState === "receiving") && (
-          <div className="relative flex items-center justify-center">
-            {[1, 2, 3].map((i) => (
-              <motion.div
-                key={i}
-                className="absolute rounded-full border border-white/20"
-                animate={{ scale: [1, 2.5], opacity: [0.4, 0] }}
-                transition={{ duration: 2, repeat: Infinity, delay: i * 0.5, ease: "easeOut" }}
-                style={{ width: 96, height: 96 }}
-              />
-            ))}
-            <div className="h-24 w-24 rounded-full gradient-primary flex items-center justify-center text-3xl font-bold text-white shadow-2xl z-10">
-              {remoteUsername[0]?.toUpperCase() || "?"}
+      {/* Center content */}
+      <div className="relative z-20 flex flex-col items-center justify-center flex-1 gap-5 px-6">
+        {/* Only show avatar/info when not in full video mode */}
+        {!(showVideo && callState === "connected") && (
+          <>
+            <div className="relative flex items-center justify-center">
+              {(callState === "calling" || callState === "receiving") && [1, 2, 3].map((i) => (
+                <motion.div
+                  key={i}
+                  className="absolute rounded-full border border-white/20"
+                  animate={{ scale: [1, 2.5], opacity: [0.4, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: i * 0.5, ease: "easeOut" }}
+                  style={{ width: 96, height: 96 }}
+                />
+              ))}
+              <div className="h-24 w-24 rounded-full gradient-primary flex items-center justify-center text-3xl font-bold text-white shadow-2xl z-10">
+                {remoteUsername[0]?.toUpperCase() || "?"}
+              </div>
             </div>
-          </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white">{remoteUsername}</h2>
+              <p className="text-sm text-white/60 mt-1">
+                {callState === "calling" && "Calling..."}
+                {callState === "receiving" && `Incoming ${callType} call`}
+                {callState === "connected" && formatDuration(callDuration)}
+              </p>
+            </div>
+          </>
         )}
 
-        {/* Audio call avatar when connected */}
-        {callState === "connected" && !isVideo && (
-          <div className="h-24 w-24 rounded-full gradient-primary flex items-center justify-center text-3xl font-bold text-white shadow-2xl">
-            {remoteUsername[0]?.toUpperCase() || "?"}
+        {/* Duration overlay for video calls */}
+        {showVideo && callState === "connected" && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-sm px-4 py-1.5 rounded-full">
+            <span className="text-white text-sm font-medium">{formatDuration(callDuration)}</span>
           </div>
         )}
-
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-white">{remoteUsername}</h2>
-          <p className="text-sm text-white/60 mt-1">
-            {callState === "calling" && "Calling..."}
-            {callState === "receiving" && `Incoming ${callType} call`}
-            {callState === "connected" && formatDuration(callDuration)}
-          </p>
-        </div>
       </div>
 
       {/* Controls */}
-      <div className="relative z-10 pb-12 flex flex-col items-center gap-6">
-        {/* Mute / Video toggles — only when connected */}
+      <div className="relative z-20 pb-12 flex flex-col items-center gap-5">
         {callState === "connected" && (
           <div className="flex items-center gap-4">
             <button
               onClick={() => { setIsMuted(!isMuted); onToggleMute(); }}
-              className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isMuted ? "bg-white/20 text-white" : "bg-white/10 text-white/70 hover:bg-white/20"}`}
+              className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isMuted ? "bg-white/30 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"}`}
             >
               {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
             </button>
             {callType === "video" && (
               <button
                 onClick={() => { setIsVideoOff(!isVideoOff); onToggleVideo(); }}
-                className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isVideoOff ? "bg-white/20 text-white" : "bg-white/10 text-white/70 hover:bg-white/20"}`}
+                className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${isVideoOff ? "bg-white/30 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"}`}
               >
                 {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
               </button>
@@ -123,7 +145,6 @@ const CallOverlay = ({
           </div>
         )}
 
-        {/* Accept / Reject / End */}
         <div className="flex items-center gap-8">
           {callState === "receiving" && (
             <>
@@ -141,7 +162,6 @@ const CallOverlay = ({
               </div>
             </>
           )}
-
           {(callState === "calling" || callState === "connected") && (
             <div className="flex flex-col items-center gap-2">
               <button onClick={onEnd} className="h-16 w-16 rounded-full bg-destructive flex items-center justify-center shadow-lg hover:bg-destructive/80 transition-colors">
