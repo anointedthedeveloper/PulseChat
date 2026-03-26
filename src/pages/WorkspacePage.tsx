@@ -254,7 +254,7 @@ const WorkspacePage = () => {
   const handleOpenGithubIssue = useCallback((message: { id: string; text: string }) => {
     setGithubIssueFrom({ id: message.id, content: message.text });
     setGithubIssueTitle(message.text.split("\n")[0].slice(0, 120));
-    setGithubIssueBody(`Created from ChatFlow message:\n\n${message.text}`);
+    setGithubIssueBody(`Created from RepoRoom message:\n\n${message.text}`);
     setSelectedLinkedRepoId((prev) => prev || linkedRepos[0]?.id || "");
   }, [linkedRepos]);
 
@@ -931,7 +931,7 @@ const WorkspacePage = () => {
               )}
 
               {!githubToken && linkedRepos.length > 0 && (
-                <p className="text-xs text-destructive mt-3">Connect GitHub first so ChatFlow can create issues on your behalf.</p>
+                <p className="text-xs text-destructive mt-3">Connect GitHub first so RepoRoom can create issues on your behalf.</p>
               )}
             </motion.div>
           </motion.div>

@@ -16,7 +16,7 @@ const EmptyChatPanel = ({ onToggleSidebar }: EmptyChatPanelProps) => {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <span className="ml-3 text-sm font-semibold text-foreground">ChatFlow</span>
+        <span className="ml-3 text-sm font-semibold text-foreground">RepoRoom</span>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_28%)]">
@@ -29,7 +29,7 @@ const EmptyChatPanel = ({ onToggleSidebar }: EmptyChatPanelProps) => {
             <MessageSquare className="h-10 w-10 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-foreground">ChatFlow</h2>
+            <h2 className="text-xl font-semibold text-foreground">RepoRoom</h2>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm">
               Select a conversation to start messaging, open split view, or jump into your workspace without leaving the app shell.
             </p>

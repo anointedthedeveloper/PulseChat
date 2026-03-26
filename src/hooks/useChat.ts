@@ -728,7 +728,7 @@ export function useChat() {
       }
     }
     // Also update document title
-    document.title = total > 0 ? `(${total}) ChatFlow` : "ChatFlow";
+    document.title = total > 0 ? `(${total}) RepoRoom` : "RepoRoom";
   }, [chatRooms]);
 
   // Request push notification permission

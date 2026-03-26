@@ -94,7 +94,7 @@ const LoginPage = () => {
                 >
                   <MessageSquare className="h-8 w-8 text-primary-foreground" />
                 </motion.div>
-                <h1 className="text-3xl font-semibold text-foreground">ChatFlow</h1>
+                <h1 className="text-3xl font-semibold text-foreground">RepoRoom</h1>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {isSignUp ? "Create your account and step into the workspace." : "Sign in and continue where your team left off."}
                 </p>

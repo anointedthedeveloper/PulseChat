@@ -35,7 +35,7 @@ const LandingPage = () => {
   ];
 
   const workflowSteps = [
-    "$ chatflow open workspace",
+    "$ reporoom open workspace",
     "> Summarize the bug thread and assign an owner",
     "> Link this discussion to github issue #42",
     "> Import src/hooks/useWebRTC.ts into the project view",
@@ -57,7 +57,7 @@ const LandingPage = () => {
               <MessageSquare className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">ChatFlow</p>
+              <p className="text-sm font-semibold text-foreground">RepoRoom</p>
               <p className="text-[11px] text-muted-foreground">Chat, projects, repos, and workspace tools in one place</p>
             </div>
           </div>
@@ -95,7 +95,7 @@ const LandingPage = () => {
                 A chat homepage that feels like a developer console, not just another landing page.
               </h1>
               <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground sm:text-lg">
-                ChatFlow combines team conversation, project structure, GitHub context, and in-app workspace tools so your team can move from “what should we do?” to “it’s shipped” in one flow.
+                RepoRoom combines team conversation, project structure, GitHub context, and in-app workspace tools so your team can move from “what should we do?” to “it’s shipped” in one flow.
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -202,7 +202,7 @@ const LandingPage = () => {
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                     </div>
                     <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-slate-300">
-                      chatflow.dev
+                      reporoom.dev
                     </div>
                   </div>
 
@@ -306,7 +306,7 @@ const LandingPage = () => {
           </div>
         </main>
         <footer className="flex flex-col gap-3 border-t border-border/60 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>ChatFlow is a developer platform for chat, GitHub-linked projects, and team execution.</p>
+          <p>RepoRoom is a developer platform for chat, GitHub-linked projects, and team execution.</p>
           <p>
             Developed by <span className="font-semibold text-foreground">Anointed the Developer</span>
           </p>
