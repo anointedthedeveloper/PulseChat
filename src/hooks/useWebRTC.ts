@@ -144,7 +144,10 @@ export function useWebRTC() {
     setRemoteStream(null);
     setCallState("idle");
     setRemoteUserId(null);
+    setRemoteUsername("");
     setIsScreenSharing(false);
+    setIsMuted(false);
+    setIsVideoOff(false);
     setRemoteVideoOff(false);
     remoteUserIdRef.current = null;
     chatRoomIdRef.current = null;
@@ -173,6 +176,66 @@ export function useWebRTC() {
     callStartTimeRef.current = Date.now();
     timerRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
   }, []);
+
+  const syncLocalStream = useCallback((stream: MediaStream) => {
+    localStreamRef.current = stream;
+    setLocalStream(new MediaStream(stream.getTracks()));
+    setIsMuted(stream.getAudioTracks().every((track) => !track.enabled));
+    const videoTracks = stream.getVideoTracks();
+    setIsVideoOff(videoTracks.length > 0 ? videoTracks.every((track) => !track.enabled) : true);
+  }, []);
+
+  const ensureVideoTrack = useCallback(async () => {
+    const existingStream = localStreamRef.current;
+    const existingVideoTrack = existingStream?.getVideoTracks()[0] ?? null;
+    if (existingVideoTrack && existingVideoTrack.readyState === "live") {
+      callTypeRef.current = "video";
+      setCallType("video");
+      setIsVideoOff(!existingVideoTrack.enabled);
+      return existingStream!;
+    }
+
+    const cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+      audio: false,
+    });
+    const videoTrack = cameraStream.getVideoTracks()[0];
+    if (!videoTrack) {
+      throw new Error("Could not acquire a camera track for video call");
+    }
+
+    let mergedStream: MediaStream;
+    if (existingStream) {
+      mergedStream = new MediaStream([
+        ...existingStream.getAudioTracks(),
+        ...existingStream.getVideoTracks().filter((track) => track.readyState === "live"),
+      ]);
+      existingStream.getVideoTracks().forEach((track) => {
+        existingStream.removeTrack(track);
+        if (track.readyState === "live") track.stop();
+      });
+      mergedStream.addTrack(videoTrack);
+    } else {
+      mergedStream = new MediaStream([videoTrack]);
+    }
+
+    syncLocalStream(mergedStream);
+
+    const allPCs = [peerConnection.current, ...Array.from(peerConnections.current.values())].filter(Boolean) as RTCPeerConnection[];
+    for (const pc of allPCs) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) {
+        await sender.replaceTrack(videoTrack).catch(() => {});
+      } else {
+        pc.addTrack(videoTrack, mergedStream);
+      }
+    }
+
+    callTypeRef.current = "video";
+    setCallType("video");
+    setIsVideoOff(!videoTrack.enabled);
+    return mergedStream;
+  }, [syncLocalStream]);
 
   const createPeerConnection = useCallback((targetUserId: string, forGroup = false) => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
@@ -270,8 +333,7 @@ export function useWebRTC() {
       ]);
 
       chatRoomIdRef.current = roomId;
-      localStreamRef.current = stream;
-      setLocalStream(stream);
+      syncLocalStream(stream);
 
       const pc = createPeerConnection(targetUserId);
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
@@ -298,8 +360,7 @@ export function useWebRTC() {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: type === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
       });
-      localStreamRef.current = stream;
-      setLocalStream(stream);
+      syncLocalStream(stream);
 
       for (const memberId of memberIds) {
         const pc = createPeerConnection(memberId, true);
@@ -324,15 +385,17 @@ export function useWebRTC() {
     setCallType(type);
     setRemoteUserId(signal.from);
     remoteUserIdRef.current = signal.from;
+    setRemoteUsername(signal.fromUsername || "Unknown");
     if (signal.chatRoomId) chatRoomIdRef.current = signal.chatRoomId;
+    setCallState("calling");
+    delete (window as any).__pendingCallSignal;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: type === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
       });
-      localStreamRef.current = stream;
-      setLocalStream(stream);
+      syncLocalStream(stream);
 
       const pc = createPeerConnection(signal.from);
       stream.getTracks().forEach((t) => {
@@ -406,30 +469,10 @@ export function useWebRTC() {
   const upgradeToVideo = useCallback(async (notify = true) => {
     if (callTypeRef.current === "video") return;
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
-      });
-      localStreamRef.current?.getTracks().forEach((t) => t.stop());
-      localStreamRef.current = newStream;
-      setLocalStream(newStream);
-      callTypeRef.current = "video";
-      setCallType("video");
+      await ensureVideoTrack();
 
       const allPCs = [peerConnection.current, ...Array.from(peerConnections.current.values())].filter(Boolean) as RTCPeerConnection[];
       for (const pc of allPCs) {
-        const videoTrack = newStream.getVideoTracks()[0];
-        const audioTrack = newStream.getAudioTracks()[0];
-        const videoSender = pc.getSenders().find((s) => s.track?.kind === "video");
-        const audioSender = pc.getSenders().find((s) => s.track?.kind === "audio");
-        if (videoSender) {
-          await videoSender.replaceTrack(videoTrack).catch(() => {});
-        } else {
-          pc.addTrack(videoTrack, newStream);
-        }
-        if (audioSender && audioTrack) {
-          await audioSender.replaceTrack(audioTrack).catch(() => {});
-        }
         // Only the initiator renegotiates to avoid offer glare
         if (notify && pc.signalingState === "stable") {
           const rid = remoteUserIdRef.current;
@@ -448,7 +491,7 @@ export function useWebRTC() {
     } catch (err) {
       console.error("[WebRTC] upgradeToVideo failed:", err);
     }
-  }, [sendSignal]);
+  }, [ensureVideoTrack, sendSignal]);
 
   // Flip between front and back camera (mobile)
   const flipCamera = useCallback(async () => {
@@ -500,9 +543,6 @@ export function useWebRTC() {
     setIsScreenSharing(false);
   }, [replaceVideoTrack]);
 
-  const upgradeToVideoRef = useRef<(notify?: boolean) => Promise<void>>(async () => {});
-  useEffect(() => { upgradeToVideoRef.current = upgradeToVideo; }, [upgradeToVideo]);
-
   // Signal listener
   useEffect(() => {
     if (!user) return;
@@ -532,6 +572,7 @@ export function useWebRTC() {
                 const pc = peerConnections.current.get(signal.from) || peerConnection.current;
                 if (pc) {
                   if (signal.callType === "video") {
+                    await ensureVideoTrack().catch((e) => console.error("[WebRTC] ensureVideoTrack error:", e));
                     callTypeRef.current = "video";
                     setCallType("video");
                   }
@@ -616,7 +657,7 @@ export function useWebRTC() {
               break;
 
             case "upgrade-video":
-              upgradeToVideoRef.current(false);
+              await ensureVideoTrack().catch((e) => console.error("[WebRTC] remote upgrade ensureVideoTrack error:", e));
               break;
           }
 
@@ -626,7 +667,7 @@ export function useWebRTC() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, cleanup]);
+  }, [user, cleanup, ensureVideoTrack, sendSignal]);
 
   useEffect(() => {
     if (callState === "idle") return;

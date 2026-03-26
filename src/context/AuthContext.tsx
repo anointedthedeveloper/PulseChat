@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -40,37 +40,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const currentUserRef = useRef<User | null>(null);
 
-  const fetchProfile = async (userId: string) => {
+  useEffect(() => {
+    currentUserRef.current = user;
+  }, [user]);
+
+  const fetchProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .single();
     if (data) setProfile(data as Profile);
-  };
+  }, []);
 
-  const updatePresence = async (userId: string, status: "online" | "offline") => {
+  const updatePresence = useCallback(async (userId: string, status: "online" | "offline") => {
     await supabase
       .from("profiles")
       .update({ status, last_seen: new Date().toISOString() })
       .eq("id", userId);
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) await fetchProfile(session.user.id);
-  };
+  }, [fetchProfile]);
 
   useEffect(() => {
+    let mounted = true;
+
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        void fetchProfile(session.user.id);
+        void updatePresence(session.user.id, "online");
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
+        if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-            updatePresence(session.user.id, "online");
+          window.setTimeout(() => {
+            void fetchProfile(session.user.id);
+            void updatePresence(session.user.id, "online");
           }, 0);
         } else {
           setProfile(null);
@@ -80,17 +101,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     const handleUnload = () => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) updatePresence(session.user.id, "offline");
-      });
+      const activeUser = currentUserRef.current;
+      if (activeUser) {
+        void updatePresence(activeUser.id, "offline");
+      }
     };
     window.addEventListener("beforeunload", handleUnload);
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
       window.removeEventListener("beforeunload", handleUnload);
     };
-  }, []);
+  }, [fetchProfile, updatePresence]);
 
   // Realtime: keep own profile in sync (avatar, display name, etc.)
   useEffect(() => {
