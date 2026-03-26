@@ -305,6 +305,12 @@ const LandingPage = () => {
             </motion.div>
           </div>
         </main>
+        <footer className="flex flex-col gap-3 border-t border-border/60 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <p>ChatFlow is a developer platform for chat, GitHub-linked projects, and team execution.</p>
+          <p>
+            Developed by <span className="font-semibold text-foreground">Anointed the Developer</span>
+          </p>
+        </footer>
       </div>
     </div>
   );
