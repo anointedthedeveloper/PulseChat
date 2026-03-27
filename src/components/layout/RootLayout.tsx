@@ -1,5 +1,5 @@
-import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Home, LayoutDashboard, MessageSquare, LayoutGrid, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Menu, X } from "lucide-react";
+import { Outlet, NavLink, useNavigate, useLocation, Link } from "react-router-dom";
+import { LayoutDashboard, MessageSquare, LayoutGrid, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Menu, X, BookOpen, Tag, Map, Info, FileText, Shield, ScrollText, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useThemeContext } from "@/context/ThemeContext";
@@ -8,6 +8,13 @@ import ThemeToggle from "@/components/chat/ThemeToggle";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+// Scroll to top on every navigation
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [pathname]);
+  return null;
+};
 
 const RootLayout = () => {
   const { user, profile, signOut } = useAuth();
@@ -35,8 +42,27 @@ const RootLayout = () => {
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
-  // Don't show layout on landing page or for unauthenticated users
-  if (!user || location.pathname === "/") return <Outlet />;
+  const pageLinks = [
+    { icon: Zap, label: "Features", path: "/features" },
+    { icon: Tag, label: "Pricing", path: "/pricing" },
+    { icon: BookOpen, label: "Changelog", path: "/changelog" },
+    { icon: Map, label: "Roadmap", path: "/roadmap" },
+    { icon: Info, label: "About", path: "/about" },
+    { icon: FileText, label: "Blog", path: "/blog" },
+    { icon: Shield, label: "Privacy", path: "/privacy" },
+    { icon: ScrollText, label: "Terms", path: "/terms" },
+  ];
+
+  const publicPages = ["/", "/features", "/pricing", "/changelog", "/roadmap", "/about", "/blog", "/privacy", "/terms"];
+  const isPublicPage = publicPages.includes(location.pathname);
+
+  // Public pages: no sidebar, just scroll restoration + outlet
+  if (!user || isPublicPage) return (
+    <>
+      <ScrollToTop />
+      <Outlet />
+    </>
+  );
 
   return (
     <div className="h-screen flex overflow-hidden bg-background">
@@ -105,32 +131,78 @@ const RootLayout = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) => cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative",
-                isActive 
-                  ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.1)]" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon className={cn("h-5 w-5 shrink-0 transition-transform group-active:scale-90", isActive ? "text-primary" : "")} />
-                  {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
-                  {isActive && isCollapsed && (
-                    <motion.div 
-                      layoutId="active-indicator"
-                      className="absolute left-0 w-1 h-5 bg-primary rounded-r-full" 
-                    />
+        <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
+          <div className="space-y-1">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) => cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative",
+                  isActive
+                    ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.1)]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon className={cn("h-5 w-5 shrink-0 transition-transform group-active:scale-90", isActive ? "text-primary" : "")} />
+                    {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
+                    {isActive && isCollapsed && (
+                      <motion.div layoutId="active-indicator" className="absolute left-0 w-1 h-5 bg-primary rounded-r-full" />
+                    )}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+
+          {/* Pages section */}
+          {!isCollapsed && (
+            <div>
+              <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Pages</p>
+              <div className="space-y-0.5">
+                {pageLinks.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive }) => cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-xl transition-all text-xs",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <item.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "")} />
+                        <span className="font-medium">{item.label}</span>
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Collapsed pages icons */}
+          {isCollapsed && (
+            <div className="space-y-0.5">
+              {pageLinks.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  title={item.label}
+                  className={({ isActive }) => cn(
+                    "flex items-center justify-center px-3 py-2 rounded-xl transition-all",
+                    isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   )}
-                </>
-              )}
-            </NavLink>
-          ))}
+                >
+                  {({ isActive }) => <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "")} />}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* Footer */}
@@ -176,6 +248,7 @@ const RootLayout = () => {
 
       {/* Main Content */}
       <main className="flex-1 min-w-0 relative overflow-hidden bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.03),transparent_25%),radial-gradient(circle_at_bottom_left,hsl(var(--accent)/0.03),transparent_25%)]">
+        <ScrollToTop />
         <Outlet />
       </main>
     </div>
