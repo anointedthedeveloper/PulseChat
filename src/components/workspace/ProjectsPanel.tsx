@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Plus, FolderKanban, Rocket, PauseCircle, Compass, CheckCircle2, Link2, FileText } from "lucide-react";
+import { X, Plus, FolderKanban, Rocket, PauseCircle, Compass, CheckCircle2, Link2, FileText, ChevronDown, ChevronRight, Trash2, FolderOpen, ExternalLink, FilePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { WorkspaceProject, WorkspaceProjectFile } from "@/hooks/useWorkspace";
 
@@ -10,6 +10,8 @@ interface Props {
   onCreateProject: (name: string, description?: string, linkedRepoFullName?: string | null) => void;
   onUpdateStatus: (projectId: string, status: WorkspaceProject["status"]) => void;
   onUpdateRepo: (projectId: string, linkedRepoFullName: string | null) => void;
+  onRemoveFile?: (fileId: string) => Promise<void> | void;
+  onOpenFileBrowser?: (owner: string, repo: string, branch: string) => void;
   onClose: () => void;
   fullPage?: boolean;
 }
@@ -21,11 +23,13 @@ const STATUS_CONFIG = {
   shipped:  { label: "Shipped",  icon: CheckCircle2, color: "text-primary",   badge: "bg-primary/10 text-primary" },
 };
 
-const ProjectsPanel = ({ projects, linkedRepos, projectFiles, onCreateProject, onUpdateStatus, onUpdateRepo, onClose, fullPage = false }: Props) => {
+const ProjectsPanel = ({ projects, linkedRepos, projectFiles, onCreateProject, onUpdateStatus, onUpdateRepo, onRemoveFile, onOpenFileBrowser, onClose, fullPage = false }: Props) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [linkedRepo, setLinkedRepo] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [removingFile, setRemovingFile] = useState<string | null>(null);
 
   const filesByProject = projectFiles.reduce<Record<string, WorkspaceProjectFile[]>>((acc, f) => {
     (acc[f.project_id] ||= []).push(f);
@@ -104,15 +108,77 @@ const ProjectsPanel = ({ projects, linkedRepos, projectFiles, onCreateProject, o
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${cfg.badge}`}>{cfg.label}</span>
                   {project.linked_repo_full_name && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
-                      <Link2 className="h-3 w-3" />{project.linked_repo_full_name}
+                      <Link2 className="h-3 w-3" />{project.linked_repo_full_name.split("/")[1] ?? project.linked_repo_full_name}
                     </span>
                   )}
                   {files.length > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
+                    <button
+                      onClick={() => setExpandedFiles(prev => { const n = new Set(prev); n.has(project.id) ? n.delete(project.id) : n.add(project.id); return n; })}
+                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1 hover:bg-muted/80 transition-colors"
+                    >
                       <FileText className="h-3 w-3" />{files.length} file{files.length !== 1 ? "s" : ""}
-                    </span>
+                      {expandedFiles.has(project.id) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </button>
                   )}
                 </div>
+
+                {/* File Manager */}
+                <AnimatePresence>
+                  {expandedFiles.has(project.id) && files.length > 0 && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                      <div className="bg-muted/30 rounded-xl border border-border/40 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 border-b border-border/30">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Files</span>
+                          {project.linked_repo_full_name && onOpenFileBrowser && (
+                            <button
+                              onClick={() => {
+                                const [owner, repo] = project.linked_repo_full_name!.split("/");
+                                onOpenFileBrowser(owner, repo, "main");
+                              }}
+                              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                            >
+                              <FilePlus className="h-3 w-3" /> Add files
+                            </button>
+                          )}
+                        </div>
+                        {files.map(file => (
+                          <div key={file.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/40 transition-colors border-b border-border/20 last:border-0 group">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-foreground truncate font-medium">{file.file_name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{file.file_path}</p>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              {onOpenFileBrowser && (
+                                <button
+                                  onClick={() => onOpenFileBrowser(file.repo_owner, file.repo_name, file.branch_name)}
+                                  className="p-1 hover:bg-background rounded text-muted-foreground hover:text-primary"
+                                  title="Open in file browser"
+                                >
+                                  <FolderOpen className="h-3 w-3" />
+                                </button>
+                              )}
+                              {onRemoveFile && (
+                                <button
+                                  onClick={async () => {
+                                    setRemovingFile(file.id);
+                                    await onRemoveFile(file.id);
+                                    setRemovingFile(null);
+                                  }}
+                                  disabled={removingFile === file.id}
+                                  className="p-1 hover:bg-rose-500/10 rounded text-muted-foreground hover:text-rose-500 disabled:opacity-40"
+                                  title="Remove file"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Repo picker */}
                 {linkedRepos.length > 0 && (

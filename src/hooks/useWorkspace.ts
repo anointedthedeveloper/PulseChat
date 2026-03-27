@@ -321,6 +321,11 @@ export function useWorkspace() {
     return { ok: true, data: data as WorkspaceProjectFile };
   }, [user]);
 
+  const removeProjectFile = useCallback(async (fileId: string) => {
+    await supabase.from("workspace_project_files").delete().eq("id", fileId);
+    setProjectFiles(prev => prev.filter(f => f.id !== fileId));
+  }, []);
+
   const addMember = useCallback(async (workspaceId: string, username: string) => {
     const { data: profile } = await supabase
       .from("profiles")
@@ -343,6 +348,6 @@ export function useWorkspace() {
     fetchWorkspaces, selectWorkspace, createWorkspace, joinWorkspace,
     createChannel, setDevStatus, createTask, updateTaskStatus,
     createProject, updateProjectStatus, updateProjectRepo,
-    addMember, fetchTasks, fetchProjects, fetchProjectFiles, importProjectFile,
+    addMember, fetchTasks, fetchProjects, fetchProjectFiles, importProjectFile, removeProjectFile,
   };
 }
