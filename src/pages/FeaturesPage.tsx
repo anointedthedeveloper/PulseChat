@@ -2,6 +2,7 @@ import { Zap, Shield, GitBranch, Users, Bell, Mic, Video, FileText, Palette, Sma
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import PageLayout from "@/components/layout/PageLayout";
+import useSEO from "@/hooks/useSEO";
 
 const features = [
   { icon: MessageSquare, title: "Real-time Messaging", desc: "Instant delivery with reply threading, edit & delete, emoji reactions, and quoted context.", color: "from-violet-500 to-purple-600" },
@@ -18,7 +19,13 @@ const features = [
   { icon: FileText, title: "File Sharing", desc: "Share images, videos, documents, and PDFs with an inline lightbox viewer.", color: "from-cyan-500 to-sky-600" },
 ];
 
-const FeaturesPage = () => (
+const FeaturesPage = () => {
+  useSEO({
+    title: "Features",
+    description: "Explore everything RepoRoom offers — real-time messaging, GitHub integration, WebRTC calls, voice notes, file sharing, themes, PWA, and more for developer teams.",
+    path: "/features",
+  });
+  return (
   <PageLayout maxWidth="xl">
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
       <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-6">
@@ -59,6 +66,7 @@ const FeaturesPage = () => (
       </div>
     </motion.div>
   </PageLayout>
-);
+  );
+};
 
 export default FeaturesPage;

@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Rocket, Sparkles, Wrench } from "lucide-react";
 import PageLayout from "@/components/layout/PageLayout";
+import useSEO from "@/hooks/useSEO";
 
 const entries = [
   {
@@ -63,7 +64,13 @@ const entries = [
   },
 ];
 
-const ChangelogPage = () => (
+const ChangelogPage = () => {
+  useSEO({
+    title: "Changelog",
+    description: "Every update, improvement, and fix shipped to RepoRoom — version history from v1.0 to the latest release.",
+    path: "/changelog",
+  });
+  return (
   <PageLayout maxWidth="md">
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mb-14">
       <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-6">
@@ -108,6 +115,7 @@ const ChangelogPage = () => (
       </div>
     </div>
   </PageLayout>
-);
+  );
+};
 
 export default ChangelogPage;
