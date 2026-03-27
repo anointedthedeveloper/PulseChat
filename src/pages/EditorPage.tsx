@@ -10,8 +10,13 @@ const EditorPage = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Detect reload: performance.navigation is legacy but widely supported;
-    // navigation.type === "reload" is the modern API
+    // If we set this flag it means the user clicked the expand button — not a reload
+    const intentional = sessionStorage.getItem("rr-editor-nav");
+    if (intentional) {
+      sessionStorage.removeItem("rr-editor-nav");
+      return;
+    }
+
     const isReload =
       (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type === "reload" ||
       (performance as any).navigation?.type === 1;
