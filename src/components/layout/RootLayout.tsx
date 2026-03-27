@@ -7,13 +7,26 @@ import AvatarBubble from "@/components/chat/AvatarBubble";
 import ThemeToggle from "@/components/chat/ThemeToggle";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const RootLayout = () => {
   const { user, profile, signOut } = useAuth();
   const { mode } = useThemeContext();
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsCollapsed(true);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },

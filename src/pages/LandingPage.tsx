@@ -5,6 +5,7 @@ import {
   Github,
   LayoutDashboard,
   MessageSquare,
+  Monitor,
   Moon,
   Sparkles,
   Sun,
@@ -50,14 +51,20 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.18),_transparent_22%),radial-gradient(circle_at_80%_20%,_hsl(var(--accent)/0.14),_transparent_20%),radial-gradient(circle_at_bottom_right,_hsl(var(--primary)/0.10),_transparent_26%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--background)))]">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-6 lg:px-10">
-        <header className="flex items-center justify-between rounded-2xl border border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 sm:px-6 py-4 sm:py-6 lg:px-10">
+        <header className="sticky top-4 z-50 flex items-center justify-between rounded-2xl border border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl shadow-lg shadow-black/5">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl gradient-primary shadow-[0_14px_30px_hsl(var(--primary)/0.28)]">
               <MessageSquare className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">RepoRoom</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-foreground">RepoRoom</p>
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary border border-primary/20">
+                  <Monitor className="h-3 w-3" />
+                  Best on Laptop
+                </span>
+              </div>
               <p className="text-[11px] text-muted-foreground">Chat, projects, repos, and workspace tools in one place</p>
             </div>
           </div>
