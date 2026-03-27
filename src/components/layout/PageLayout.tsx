@@ -1,18 +1,27 @@
-import { MessageSquare, Menu, X, Github, Mail, Sparkles, ChevronRight } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { MessageSquare, Menu, X, Github, Mail, Sparkles, ChevronRight, Sun, Moon, Check } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
+import { useThemeContext } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { label: "Features", path: "/features" },
-  { label: "Pricing", path: "/pricing" },
+  { label: "Features",  path: "/features" },
+  { label: "Pricing",   path: "/pricing" },
   { label: "Changelog", path: "/changelog" },
-  { label: "Roadmap", path: "/roadmap" },
-  { label: "About", path: "/about" },
-  { label: "Blog", path: "/blog" },
+  { label: "Roadmap",   path: "/roadmap" },
+  { label: "About",     path: "/about" },
+  { label: "Blog",      path: "/blog" },
 ];
+
+const themes = [
+  { id: "default", label: "Default", color: "bg-violet-500" },
+  { id: "ocean",   label: "Ocean",   color: "bg-sky-500" },
+  { id: "forest",  label: "Forest",  color: "bg-emerald-500" },
+  { id: "rose",    label: "Rose",    color: "bg-rose-500" },
+  { id: "doodle",  label: "Doodle",  color: "bg-purple-400" },
+] as const;
 
 interface Props {
   children: React.ReactNode;
@@ -21,9 +30,11 @@ interface Props {
 
 const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
   const { user } = useAuth();
+  const { mode, theme, setMode, setTheme } = useThemeContext();
   const location = useLocation();
-  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const themeRef = useRef<HTMLDivElement>(null);
 
   const widthClass = {
     sm: "max-w-2xl",
@@ -33,6 +44,18 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
   }[maxWidth];
 
   const currentPage = navLinks.find((l) => l.path === location.pathname);
+  const activeTheme = themes.find((t) => t.id === theme) ?? themes[0];
+
+  // Close theme picker on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
+        setThemeOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.10),_transparent_50%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--background)))]">
@@ -42,7 +65,7 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
         <div className="border-b border-border/40 bg-background/80 backdrop-blur-2xl shadow-[0_1px_0_0_hsl(var(--border)/0.4)]">
           <div className="mx-auto flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8 max-w-screen-2xl">
 
-            {/* Logo — always visible, fixed width */}
+            {/* Logo */}
             <Link to="/" className="flex items-center gap-2 shrink-0 group">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-primary shadow-md shadow-primary/30 group-hover:shadow-primary/50 transition-shadow">
                 <MessageSquare className="h-4 w-4 text-primary-foreground" />
@@ -50,31 +73,28 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
               <span className="text-sm font-bold text-foreground hidden sm:block tracking-tight">RepoRoom</span>
             </Link>
 
-            {/* Breadcrumb — only when no pill nav visible */}
+            {/* Breadcrumb — mobile only */}
             {currentPage && (
               <div className="flex items-center gap-1 text-muted-foreground md:hidden">
                 <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                <span className="text-sm font-medium text-foreground/70 truncate max-w-[120px]">{currentPage.label}</span>
+                <span className="text-sm font-medium text-foreground/70 truncate max-w-[110px]">{currentPage.label}</span>
               </div>
             )}
 
-            {/* Pill nav — scrollable so it never wraps or overflows */}
+            {/* Pill nav — desktop */}
             <nav className="hidden md:flex flex-1 justify-center overflow-x-auto no-scrollbar">
               <div className="flex items-center gap-0.5 rounded-2xl border border-border/50 bg-muted/40 px-1.5 py-1 backdrop-blur-sm">
                 {navLinks.map((l) => {
                   const active = location.pathname === l.path;
                   return (
-                    <Link
-                      key={l.path}
-                      to={l.path}
+                    <Link key={l.path} to={l.path}
                       className={cn(
                         "relative whitespace-nowrap px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all duration-150",
                         active ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-background/60"
                       )}
                     >
                       {active && (
-                        <motion.span
-                          layoutId="nav-pill"
+                        <motion.span layoutId="nav-pill"
                           className="absolute inset-0 rounded-xl bg-background shadow-sm border border-border/50"
                           transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         />
@@ -86,8 +106,75 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
               </div>
             </nav>
 
-            {/* Right — auth CTA + hamburger, fixed width */}
+            {/* Right — theme picker + auth + hamburger */}
             <div className="flex items-center gap-2 shrink-0 ml-auto md:ml-0">
+
+              {/* ── Theme picker ── */}
+              <div ref={themeRef} className="relative">
+                <button
+                  onClick={() => setThemeOpen((v) => !v)}
+                  className="flex items-center gap-1.5 h-8 rounded-xl border border-border/60 bg-background/60 px-2.5 hover:bg-muted transition-colors"
+                  title="Change theme"
+                >
+                  <span className={cn("h-3.5 w-3.5 rounded-full shrink-0", activeTheme.color)} />
+                  {mode === "dark"
+                    ? <Moon className="h-3.5 w-3.5 text-muted-foreground" />
+                    : <Sun className="h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                </button>
+
+                <AnimatePresence>
+                  {themeOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-border/60 bg-background/95 backdrop-blur-2xl shadow-2xl p-3 z-50"
+                    >
+                      {/* Mode toggle */}
+                      <div className="flex gap-1.5 mb-3">
+                        {(["dark", "light"] as const).map((m) => (
+                          <button key={m} onClick={() => setMode(m)}
+                            className={cn(
+                              "flex-1 flex items-center justify-center gap-1.5 rounded-xl py-1.5 text-xs font-medium transition-all",
+                              mode === m
+                                ? "bg-primary/10 text-primary border border-primary/20"
+                                : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                            )}
+                          >
+                            {m === "dark" ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+                            {m === "dark" ? "Dark" : "Light"}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Divider */}
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2 px-1">Colour</p>
+
+                      {/* Theme swatches */}
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {themes.map((t) => (
+                          <button key={t.id} onClick={() => { setTheme(t.id); }}
+                            title={t.label}
+                            className={cn(
+                              "flex flex-col items-center gap-1 rounded-xl p-1.5 transition-all",
+                              theme === t.id ? "bg-primary/10 ring-1 ring-primary/40" : "hover:bg-muted"
+                            )}
+                          >
+                            <span className={cn("h-5 w-5 rounded-full flex items-center justify-center", t.color)}>
+                              {theme === t.id && <Check className="h-3 w-3 text-white" />}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground leading-none">{t.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Auth */}
               {user ? (
                 <Link to="/dashboard"
                   className="hidden sm:inline-flex items-center gap-1.5 rounded-xl gradient-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 hover:opacity-90 transition-opacity whitespace-nowrap">
@@ -105,8 +192,9 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
                   </Link>
                 </>
               )}
-              <button
-                onClick={() => setMobileOpen((v) => !v)}
+
+              {/* Hamburger */}
+              <button onClick={() => setMobileOpen((v) => !v)}
                 className="md:hidden h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 aria-label="Toggle menu"
               >
@@ -120,20 +208,12 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
         <AnimatePresence>
           {mobileOpen && (
             <>
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
                 className="fixed inset-0 top-14 bg-background/60 backdrop-blur-sm z-40 md:hidden"
                 onClick={() => setMobileOpen(false)}
               />
-              {/* Panel */}
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 className="absolute top-full left-0 right-0 z-50 md:hidden border-b border-border/50 bg-background/95 backdrop-blur-2xl shadow-xl"
               >
@@ -141,15 +221,10 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
                   {navLinks.map((l) => {
                     const active = location.pathname === l.path;
                     return (
-                      <Link
-                        key={l.path}
-                        to={l.path}
-                        onClick={() => setMobileOpen(false)}
+                      <Link key={l.path} to={l.path} onClick={() => setMobileOpen(false)}
                         className={cn(
                           "flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-colors",
-                          active
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )}
                       >
                         {l.label}
@@ -158,7 +233,40 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
                     );
                   })}
 
-                  <div className="pt-2 border-t border-border/40 mt-2 flex flex-col gap-2">
+                  {/* Mobile theme row */}
+                  <div className="pt-3 border-t border-border/40">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2 px-1">Appearance</p>
+                    <div className="flex gap-1.5 mb-3">
+                      {(["dark", "light"] as const).map((m) => (
+                        <button key={m} onClick={() => setMode(m)}
+                          className={cn(
+                            "flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium transition-all",
+                            mode === m ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          {m === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+                          {m === "dark" ? "Dark" : "Light"}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {themes.map((t) => (
+                        <button key={t.id} onClick={() => setTheme(t.id)} title={t.label}
+                          className={cn(
+                            "flex flex-col items-center gap-1 rounded-xl p-2 transition-all",
+                            theme === t.id ? "bg-primary/10 ring-1 ring-primary/40" : "hover:bg-muted"
+                          )}
+                        >
+                          <span className={cn("h-5 w-5 rounded-full flex items-center justify-center", t.color)}>
+                            {theme === t.id && <Check className="h-3 w-3 text-white" />}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground">{t.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-border/40 flex flex-col gap-2">
                     {user ? (
                       <Link to="/dashboard" onClick={() => setMobileOpen(false)}
                         className="flex items-center justify-center rounded-xl gradient-primary py-2.5 text-sm font-semibold text-primary-foreground">
@@ -189,7 +297,7 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
         {children}
       </main>
 
-      {/* Shared footer */}
+      {/* Footer */}
       <footer className={cn("mx-auto px-4 sm:px-6 lg:px-8 mt-20 pb-10", widthClass)}>
         <div className="border-t border-border/40 pt-10">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 mb-10">
@@ -239,8 +347,18 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
               </ul>
             </div>
           </div>
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground border-t border-border/20 pt-6">
-            <p>&copy; 2026 RepoRoom. All rights reserved.</p>
+            <div className="flex flex-col gap-1">
+              <p>&copy; 2026 RepoRoom. All rights reserved.</p>
+              <p className="flex items-center gap-1">
+                Powered by{" "}
+                <a href="https://github.com/anointedthedeveloper" target="_blank" rel="noopener noreferrer"
+                  className="font-semibold text-foreground hover:text-primary transition-colors">
+                  Anointed the Developer
+                </a>
+              </p>
+            </div>
             <p className="flex items-center gap-1.5">
               Built with <Sparkles className="h-3 w-3 text-primary" /> by{" "}
               <a href="https://github.com/anointedthedeveloper" target="_blank" rel="noopener noreferrer"
