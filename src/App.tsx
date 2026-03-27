@@ -15,6 +15,13 @@ import ChatRoutePage from "./pages/ChatRoutePage.tsx";
 import EditorPage from "./pages/EditorPage.tsx";
 import PricingPage from "./pages/PricingPage.tsx";
 import ProjectEditorPage from "./pages/ProjectEditorPage.tsx";
+import FeaturesPage from "./pages/FeaturesPage.tsx";
+import ChangelogPage from "./pages/ChangelogPage.tsx";
+import RoadmapPage from "./pages/RoadmapPage.tsx";
+import AboutPage from "./pages/AboutPage.tsx";
+import BlogPage from "./pages/BlogPage.tsx";
+import PrivacyPage from "./pages/PrivacyPage.tsx";
+import TermsPage from "./pages/TermsPage.tsx";
 import RootLayout from "./components/layout/RootLayout.tsx";
 
 const queryClient = new QueryClient();
@@ -40,6 +47,13 @@ const App = () => (
                 <Route path="/editor/:owner/:repo" element={<EditorPage />} />
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/project/:projectId/editor" element={<ProjectEditorPage />} />
+                <Route path="/features" element={<FeaturesPage />} />
+                <Route path="/changelog" element={<ChangelogPage />} />
+                <Route path="/roadmap" element={<RoadmapPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/blog" element={<BlogPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<NotFound />} />

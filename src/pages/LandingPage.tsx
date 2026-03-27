@@ -486,26 +486,29 @@ const LandingPage = () => {
             <div>
               <h4 className="text-sm font-bold text-foreground mb-4 uppercase tracking-wider">Product</h4>
               <ul className="space-y-3 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">Features</a></li>
-                <li><a href="#pricing" className="hover:text-primary transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Changelog</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Roadmap</a></li>
+                <li><Link to="/features" className="hover:text-primary transition-colors">Features</Link></li>
+                <li><Link to="/pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
+                <li><Link to="/changelog" className="hover:text-primary transition-colors">Changelog</Link></li>
+                <li><Link to="/roadmap" className="hover:text-primary transition-colors">Roadmap</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="text-sm font-bold text-foreground mb-4 uppercase tracking-wider">Company</h4>
               <ul className="space-y-3 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Privacy</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Terms</a></li>
+                <li><Link to="/about" className="hover:text-primary transition-colors">About</Link></li>
+                <li><Link to="/blog" className="hover:text-primary transition-colors">Blog</Link></li>
+                <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy</Link></li>
+                <li><Link to="/terms" className="hover:text-primary transition-colors">Terms</Link></li>
               </ul>
             </div>
           </div>
           <div className="flex flex-col gap-4 pt-8 border-t border-border/20 sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} RepoRoom. All rights reserved.</p>
+            <p>&copy; 2026 RepoRoom. All rights reserved.</p>
             <p className="flex items-center gap-2">
-              Built with <Sparkles className="h-3 w-3 text-primary" /> by <span className="font-semibold text-foreground">Anointed the Developer</span>
+              Built with <Sparkles className="h-3 w-3 text-primary" /> by{" "}
+              <a href="https://github.com/anointedthedeveloper" target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground hover:text-primary transition-colors">
+                Anointed the Developer
+              </a>
             </p>
           </div>
         </footer>

@@ -49,7 +49,7 @@ const plans = [
       "Onboarding & training",
     ],
     cta: "Contact Sales",
-    href: "mailto:sales@reporoom.dev",
+    href: "mailto:anointedthedeveloper@gmail.com",
     highlighted: false,
     external: true,
   },
