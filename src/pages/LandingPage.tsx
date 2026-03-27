@@ -62,6 +62,7 @@ const LandingPage = () => {
         "Community support",
       ],
       cta: "Get Started",
+      href: "/auth",
       highlighted: false,
     },
     {
@@ -78,6 +79,7 @@ const LandingPage = () => {
         "Custom workspace tools",
       ],
       cta: "Start Free Trial",
+      href: "/auth?mode=signup",
       highlighted: true,
     },
     {
@@ -93,7 +95,9 @@ const LandingPage = () => {
         "Onboarding & training",
       ],
       cta: "Contact Sales",
+      href: "mailto:sales@reporoom.dev",
       highlighted: false,
+      external: true,
     },
   ];
 
@@ -388,6 +392,9 @@ const LandingPage = () => {
             <p className="text-lg text-muted-foreground leading-8">
               Choose the plan that's right for your team. All plans include our core chat and GitHub integration features.
             </p>
+            <Link to="/pricing" className="inline-flex items-center gap-1 mt-4 text-sm text-primary hover:underline">
+              View full pricing page <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
 
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
@@ -427,6 +434,13 @@ const LandingPage = () => {
                       ? "gradient-primary text-primary-foreground shadow-lg shadow-primary/25"
                       : "bg-background/80 border border-border hover:bg-background text-foreground"
                   }`}
+                  onClick={() => {
+                    if ((plan as { external?: boolean }).external) {
+                      window.location.href = (plan as { href: string }).href;
+                    } else {
+                      window.location.href = (plan as { href: string }).href;
+                    }
+                  }}
                 >
                   {plan.cta}
                 </button>
