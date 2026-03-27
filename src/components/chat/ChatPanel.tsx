@@ -326,7 +326,7 @@ const ChatPanel = ({ chat, messages, reactions = [], onSendMessage, onEditMessag
 
   return (
     <div
-      className={`h-full flex flex-col min-w-0 overflow-hidden rounded-[28px] border border-border/70 bg-card/85 shadow-[0_18px_50px_rgba(15,23,42,0.08)] ${wallpaper ? "chat-wallpaper" : ""}`}
+      className={`h-full flex flex-col min-w-0 overflow-hidden bg-card/40 backdrop-blur-xl border-x border-border/40 ${wallpaper ? "chat-wallpaper" : ""}`}
       style={wallpaper ? { backgroundImage: `url(${wallpaper})` } : undefined}
     >
       {cropSrc && (

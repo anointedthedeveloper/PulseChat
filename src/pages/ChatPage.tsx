@@ -120,7 +120,7 @@ const ChatPage = () => {
   const secondChat = chatRooms.find((c) => c.id === secondChatId) || null;
 
   return (
-    <div className="h-screen flex overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.10),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(59,130,246,0.08),_transparent_22%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--background)))]">
+    <div className="h-full flex overflow-hidden">
 
       {/* Mobile sidebar backdrop */}
       <AnimatePresence>
