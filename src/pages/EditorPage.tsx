@@ -10,6 +10,17 @@ const EditorPage = () => {
   const { user } = useAuth();
 
   useEffect(() => {
+    // Detect reload: performance.navigation is legacy but widely supported;
+    // navigation.type === "reload" is the modern API
+    const isReload =
+      (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type === "reload" ||
+      (performance as any).navigation?.type === 1;
+
+    if (isReload) {
+      navigate("/chat", { replace: true });
+      return;
+    }
+
     if (!user) {
       toast.error("Please log in to use the editor");
       navigate("/auth");
@@ -26,11 +37,11 @@ const EditorPage = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-background">
-      <RepoFileBrowser 
+      <RepoFileBrowser
         owner={owner}
         repo={repo}
         defaultBranch={branch || "main"}
-        onClose={() => navigate(-1)}
+        onClose={() => navigate("/chat")}
         fullMode={true}
       />
     </div>
