@@ -139,6 +139,20 @@ const LandingPage = () => {
               <p className="text-[11px] text-muted-foreground">Chat, projects, repos, and workspace tools in one place</p>
             </div>
           </div>
+          {/* Centre nav links */}
+          <nav className="hidden lg:flex items-center gap-1">
+            {(["Features", "/features"], ["Pricing", "/pricing"], ["Changelog", "/changelog"], ["About", "/about"], ["Blog", "/blog"]) && [
+              ["Features", "/features"],
+              ["Pricing", "/pricing"],
+              ["Changelog", "/changelog"],
+              ["About", "/about"],
+              ["Blog", "/blog"],
+            ].map(([label, path]) => (
+              <Link key={path} to={path} className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors">
+                {label}
+              </Link>
+            ))}
+          </nav>
           <div className="flex items-center gap-2">
             {user ? (
               <>
@@ -445,6 +459,33 @@ const LandingPage = () => {
                   {plan.cta}
                 </button>
               </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Explore section */}
+        <section className="py-20 lg:py-24 border-t border-border/40">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl mb-3">Explore RepoRoom</h2>
+            <p className="text-muted-foreground">Everything you need to know, all in one place.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "Features", path: "/features", desc: "See everything RepoRoom can do for your team.", emoji: "⚡" },
+              { label: "Pricing", path: "/pricing", desc: "Free, Pro, and Enterprise plans explained.", emoji: "💳" },
+              { label: "Changelog", path: "/changelog", desc: "Every update and improvement we've shipped.", emoji: "📋" },
+              { label: "Roadmap", path: "/roadmap", desc: "What's coming next and what we're building.", emoji: "🗺️" },
+              { label: "About", path: "/about", desc: "The story behind RepoRoom and who built it.", emoji: "👋" },
+              { label: "Blog", path: "/blog", desc: "Engineering deep-dives and product stories.", emoji: "✍️" },
+              { label: "Privacy", path: "/privacy", desc: "How we handle and protect your data.", emoji: "🔒" },
+              { label: "Terms", path: "/terms", desc: "The rules for using RepoRoom.", emoji: "📄" },
+            ].map((item) => (
+              <Link key={item.path} to={item.path}
+                className="group rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-xl hover:border-primary/30 hover:bg-card/80 transition-all">
+                <span className="text-2xl mb-3 block">{item.emoji}</span>
+                <p className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">{item.label}</p>
+                <p className="text-xs text-muted-foreground leading-5">{item.desc}</p>
+              </Link>
             ))}
           </div>
         </section>

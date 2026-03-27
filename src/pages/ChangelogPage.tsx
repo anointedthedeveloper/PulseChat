@@ -1,17 +1,20 @@
-import { MessageSquare, ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Rocket, Sparkles, Wrench } from "lucide-react";
+import PageLayout from "@/components/layout/PageLayout";
 
 const entries = [
   {
     version: "v1.3.0",
     date: "June 2025",
     tag: "New",
-    tagColor: "bg-emerald-500/10 text-emerald-500",
+    tagColor: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
+    icon: Sparkles,
+    iconColor: "from-emerald-500 to-teal-600",
     changes: [
       "Project Editor — open any project's linked repo in a full IDE with file tree, syntax highlighting, and commit support",
       "Pricing page with Free, Pro, and Enterprise plans",
       "Footer pages: Features, Changelog, Roadmap, About, Blog, Privacy, Terms",
+      "Shared PageLayout with sticky nav and consistent footer across all pages",
       "Contact email wired to anointedthedeveloper@gmail.com",
     ],
   },
@@ -19,7 +22,9 @@ const entries = [
     version: "v1.2.0",
     date: "May 2025",
     tag: "Improved",
-    tagColor: "bg-sky-500/10 text-sky-500",
+    tagColor: "bg-sky-500/15 text-sky-400 border-sky-500/20",
+    icon: Wrench,
+    iconColor: "from-sky-500 to-blue-600",
     changes: [
       "Workspace projects now support file imports from linked repos",
       "RepoFileBrowser: terminal tab, npm sandbox, and browser preview",
@@ -31,7 +36,9 @@ const entries = [
     version: "v1.1.0",
     date: "April 2025",
     tag: "Improved",
-    tagColor: "bg-sky-500/10 text-sky-500",
+    tagColor: "bg-sky-500/15 text-sky-400 border-sky-500/20",
+    icon: Wrench,
+    iconColor: "from-violet-500 to-purple-600",
     changes: [
       "Voice & video calls via WebRTC with STUN/TURN",
       "Screen sharing and self-preview picture-in-picture",
@@ -43,7 +50,9 @@ const entries = [
     version: "v1.0.0",
     date: "March 2025",
     tag: "Launch",
-    tagColor: "bg-primary/10 text-primary",
+    tagColor: "bg-primary/15 text-primary border-primary/20",
+    icon: Rocket,
+    iconColor: "from-primary to-violet-600",
     changes: [
       "Initial public release",
       "Real-time messaging with Supabase Realtime",
@@ -54,55 +63,51 @@ const entries = [
   },
 ];
 
-const ChangelogPage = () => {
-  const navigate = useNavigate();
-  return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.14),_transparent_22%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--background)))]">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-10 py-6">
-        <header className="flex items-center gap-3 mb-16">
-          <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl border border-border bg-card/70 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary">
-              <MessageSquare className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-sm font-semibold text-foreground">RepoRoom</span>
-          </Link>
-        </header>
+const ChangelogPage = () => (
+  <PageLayout maxWidth="md">
+    <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mb-14">
+      <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground mb-6">
+        Changelog
+      </span>
+      <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl mb-4">What's new</h1>
+      <p className="text-lg text-muted-foreground">Every update, improvement, and fix — in one place.</p>
+    </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground mb-3">Changelog</h1>
-          <p className="text-muted-foreground">Every update, improvement, and fix — in one place.</p>
-        </motion.div>
-
-        <div className="space-y-10">
-          {entries.map((entry, i) => (
-            <motion.div key={entry.version} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 + i * 0.06 }}
-              className="rounded-2xl border border-border/70 bg-card/50 p-6 backdrop-blur-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-lg font-bold text-foreground">{entry.version}</span>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${entry.tagColor}`}>{entry.tag}</span>
-                <span className="text-xs text-muted-foreground ml-auto">{entry.date}</span>
+    {/* Timeline */}
+    <div className="relative">
+      <div className="absolute left-5 top-0 bottom-0 w-px bg-border/60" />
+      <div className="space-y-10">
+        {entries.map((entry, i) => {
+          const Icon = entry.icon;
+          return (
+            <motion.div key={entry.version} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.06 + i * 0.08 }}
+              className="relative pl-14">
+              {/* Timeline dot */}
+              <div className={`absolute left-0 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${entry.iconColor} shadow-lg`}>
+                <Icon className="h-5 w-5 text-white" />
               </div>
-              <ul className="space-y-2">
-                {entry.changes.map((c) => (
-                  <li key={c} className="flex items-start gap-2 text-sm text-foreground/80">
-                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          ))}
-        </div>
 
-        <footer className="mt-16 text-center text-xs text-muted-foreground pb-8">
-          &copy; {new Date().getFullYear()} RepoRoom. All rights reserved.
-        </footer>
+              <div className="rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-xl">
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <span className="text-lg font-bold text-foreground">{entry.version}</span>
+                  <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${entry.tagColor}`}>{entry.tag}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{entry.date}</span>
+                </div>
+                <ul className="space-y-2.5">
+                  {entry.changes.map((c) => (
+                    <li key={c} className="flex items-start gap-2.5 text-sm text-foreground/80">
+                      <span className="mt-2 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
-  );
-};
+  </PageLayout>
+);
 
 export default ChangelogPage;
