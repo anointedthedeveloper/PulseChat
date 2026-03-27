@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => ({
         name: "RepoRoom",
         short_name: "RepoRoom",
         description: "Developer messaging platform — chat, GitHub, projects, and workspace tools in one place.",
-        theme_color: "#6d28d9",
+        theme_color: "#3b82f6",
         background_color: "#0a0e18",
         display: "standalone",
         orientation: "portrait",
