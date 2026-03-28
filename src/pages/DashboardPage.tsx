@@ -16,7 +16,7 @@ const DEV_STATUS_COLORS: Record<string, string> = {
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { workspaces, activeWorkspace, members, tasks, channels, selectWorkspace } = useWorkspace();
   const { repos, githubUser, fetchRepos, fetchCommits } = useGithub();
   const [recentCommits, setRecentCommits] = useState<GithubCommit[]>([]);
@@ -60,6 +60,17 @@ const DashboardPage = () => {
   const openTasks = tasks.filter(t => t.status === "open").length;
   const inProgressTasks = tasks.filter(t => t.status === "in_progress").length;
   const doneTasks = tasks.filter(t => t.status === "done").length;
+
+  if (loading) return (
+    <div className="h-full flex items-center justify-center">
+      <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    </div>
+  );
+
+  if (!user) {
+    navigate("/auth", { replace: true });
+    return null;
+  }
 
   const timeAgo = (d: string) => {
     const diff = Date.now() - new Date(d).getTime();
