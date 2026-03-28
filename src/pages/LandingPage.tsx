@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Map,
   Monitor,
+  MessageSquare,
   Moon,
   PenLine,
   Shield,
