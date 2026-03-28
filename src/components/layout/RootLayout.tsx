@@ -131,21 +131,22 @@ const RootLayout = () => {
         )}>
           <button
             onClick={() => navigate("/")}
-            className="h-9 w-9 rounded-xl overflow-hidden shrink-0 shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 active:scale-95 transition-all"
+            className="h-10 w-10 rounded-xl overflow-hidden shrink-0 shadow-lg shadow-black/30 hover:scale-105 active:scale-95 transition-all"
           >
             <FaviconLogo className="h-full w-full" />
           </button>
 
           <AnimatePresence>
             {!isCollapsed && (
-              <motion.div
+              <motion.button
+                onClick={() => navigate("/")}
                 initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
                 transition={{ duration: 0.15 }}
-                className="flex-1 min-w-0"
+                className="flex-1 min-w-0 text-left"
               >
                 <p className="text-sm font-bold text-foreground tracking-tight truncate">RepoRoom</p>
                 <p className="text-[10px] text-muted-foreground truncate">Developer Hub</p>
-              </motion.div>
+              </motion.button>
             )}
           </AnimatePresence>
 

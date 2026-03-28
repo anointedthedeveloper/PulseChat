@@ -81,8 +81,8 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
           <div className="mx-auto flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8 max-w-screen-2xl">
 
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 shrink-0 group">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl overflow-hidden shadow-md shadow-primary/30 group-hover:shadow-primary/50 transition-shadow">
+            <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
+              <div className="h-9 w-9 rounded-xl overflow-hidden shadow-md shadow-black/30 group-hover:scale-105 transition-transform shrink-0">
                 <FaviconLogo className="h-full w-full" />
               </div>
               <span className="text-sm font-bold text-foreground hidden sm:block tracking-tight">RepoRoom</span>
@@ -318,7 +318,7 @@ const PageLayout = ({ children, maxWidth = "lg" }: Props) => {
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 mb-10">
             <div className="sm:col-span-2">
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden shadow-md shadow-primary/20">
+                <div className="h-10 w-10 rounded-xl overflow-hidden shadow-md shadow-black/30 shrink-0">
                   <FaviconLogo className="h-full w-full" />
                 </div>
                 <span className="text-base font-bold text-foreground">RepoRoom</span>

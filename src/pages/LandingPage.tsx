@@ -140,7 +140,7 @@ const LandingPage = () => {
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 sm:px-6 py-4 sm:py-6 lg:px-10">
         <header className="sticky top-4 z-50 flex items-center justify-between rounded-2xl border border-border/70 bg-card/70 px-4 py-3 backdrop-blur-xl shadow-lg shadow-black/5">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl overflow-hidden shadow-[0_14px_30px_hsl(var(--primary)/0.28)] shrink-0">
+            <div className="h-11 w-11 rounded-2xl overflow-hidden shadow-[0_14px_30px_hsl(var(--primary)/0.28)] shrink-0 group-hover:scale-105 transition-transform">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" className="h-full w-full">
                 <rect width="100" height="100" rx="22" fill="#0f1117"/>
                 <rect x="8" y="14" width="78" height="68" rx="10" fill="#1c2030" stroke="#2a2f42" strokeWidth="1.5"/>
